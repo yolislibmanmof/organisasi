@@ -1,0 +1,101 @@
+<?php
+// File: app/Models/Event.php
+declare(strict_types=1);
+
+namespace Models;
+
+use Core\Database;
+
+class Event {
+    /** Status otomatis berdasarkan tanggal */
+    private static function decorate(array $row): array {
+        $today = date('Y-m-d');
+        $row['status'] = $row['event_date'] > $today ? 'upcoming'
+            : ($row['event_date'] === $today ? 'ongoing' : 'done');
+        return $row;
+    }
+
+    public static function search(string $keyword = '', int $page = 1, int $perPage = 6): array {
+        $like   = '%' . $keyword . '%';
+        $offset = ($page - 1) * $perPage;
+        $sql = 'SELECT e.*, u.username AS creator_name
+                FROM events e LEFT JOIN users u ON u.id = e.created_by
+                WHERE (e.title LIKE :q1 OR e.location LIKE :q2)
+                ORDER BY e.event_date DESC
+                LIMIT ' . (int) $perPage . ' OFFSET ' . (int) $offset;
+        $stmt = Database::getInstance()->prepare($sql);
+        $stmt->execute([':q1' => $like, ':q2' => $like]);
+        return array_map([self::class, 'decorate'], $stmt->fetchAll());
+    }
+
+    public static function countSearch(string $keyword = ''): int {
+        $like = '%' . $keyword . '%';
+        $stmt = Database::getInstance()->prepare(
+            'SELECT COUNT(*) FROM events e WHERE (e.title LIKE :q1 OR e.location LIKE :q2)'
+        );
+        $stmt->execute([':q1' => $like, ':q2' => $like]);
+        return (int) $stmt->fetchColumn();
+    }
+
+    public static function countByStatus(): array {
+        $today = date('Y-m-d');
+        $pdo   = Database::getInstance();
+        $q = fn(string $w): int => (int) $pdo->prepare("SELECT COUNT(*) FROM events WHERE event_date $w :t")
+            ->execute([':t' => $today]) ? 0 : 0; // placeholder, diganti di bawah
+        // Implementasi eksplisit (lebih jelas):
+        $up = $pdo->prepare('SELECT COUNT(*) FROM events WHERE event_date > :t');
+        $up->execute([':t' => $today]);
+        $on = $pdo->prepare('SELECT COUNT(*) FROM events WHERE event_date = :t');
+        $on->execute([':t' => $today]);
+        $dn = $pdo->prepare('SELECT COUNT(*) FROM events WHERE event_date < :t');
+        $dn->execute([':t' => $today]);
+        return [
+            'upcoming' => (int) $up->fetchColumn(),
+            'ongoing'  => (int) $on->fetchColumn(),
+            'done'     => (int) $dn->fetchColumn(),
+        ];
+    }
+
+    public static function countThisMonth(): int {
+        $stmt = Database::getInstance()->prepare(
+            "SELECT COUNT(*) FROM events WHERE DATE_FORMAT(event_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')"
+        );
+        $stmt->execute();
+        return (int) $stmt->fetchColumn();
+    }
+
+    public static function find(int $id): ?array {
+        $stmt = Database::getInstance()->prepare(
+            'SELECT e.*, u.username AS creator_name FROM events e
+             LEFT JOIN users u ON u.id = e.created_by WHERE e.id = :id LIMIT 1'
+        );
+        $stmt->execute([':id' => $id]);
+        $row = $stmt->fetch();
+        return $row === false ? null : self::decorate($row);
+    }
+
+    public static function create(array $d, int $creatorId): int {
+        $stmt = Database::getInstance()->prepare(
+            'INSERT INTO events (title, description, location, event_date, event_time, created_by)
+             VALUES (?, ?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([
+            $d['title'], $d['description'], $d['location'],
+            $d['event_date'], $d['event_time'] !== '' ? $d['event_time'] : null, $creatorId,
+        ]);
+        return (int) Database::getInstance()->lastInsertId();
+    }
+
+    public static function updateMember(int $id, array $d): void {
+        Database::getInstance()->prepare(
+            'UPDATE events SET title = ?, description = ?, location = ?, event_date = ?, event_time = ? WHERE id = ?'
+        )->execute([
+            $d['title'], $d['description'], $d['location'],
+            $d['event_date'], $d['event_time'] !== '' ? $d['event_time'] : null, $id,
+        ]);
+    }
+
+    public static function delete(int $id): void {
+        Database::getInstance()->prepare('DELETE FROM events WHERE id = ?')->execute([$id]);
+    }
+}

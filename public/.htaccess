@@ -1,0 +1,15 @@
+# File: public/.htaccess
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Jika berkas atau direktori yang diminta benar-benar ada secara fisik
+    # (contoh: aset CSS/JS/gambar), biarkan Apache melayaninya langsung.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # Selain itu, teruskan ke index.php MILIK FOLDER INI.
+    # TANPA RewriteBase: target relatif akan diselesaikan terhadap
+    # direktori tempat file .htaccess ini berada (public/),
+    # sehingga aplikasi tetap berfungsi walau dipindah folder.
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
