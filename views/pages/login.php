@@ -1,4 +1,11 @@
-<!-- File: views/pages/login.php (ULTIMATE EDITION) -->
+<!-- File: views/pages/login.php (FINAL - TAHAP 5.1) -->
+
+<!-- Tautan kembali ke landing page publik -->
+<a href="<?= url('') ?>" class="back-home">
+    <i class="ph ph-arrow-left"></i>
+    <span>Kembali ke beranda</span>
+</a>
+
 <div class="auth-stage">
     
     <!-- ============ SISI KIRI: BRAND STORYTELLING ============ -->
@@ -91,7 +98,7 @@
             
             <div class="form-head">
                 <h2>Masuk ke akun Anda</h2>
-                <p>Kelola organisasi Anda dengan beberapa klik.</p>
+                <p>Portal khusus anggota. Kelola organisasi Anda dengan beberapa klik.</p>
             </div>
             
             <?php $flash = \Core\Session::getFlash('login_error'); if ($flash): ?>
@@ -170,7 +177,7 @@
             </form>
             
             <p class="auth-foot">
-                Belum punya akun? <a href="#" class="link-accent">Hubungi administrator</a>
+                Bukan anggota? <a href="<?= url('') ?>" class="link-accent">Kunjungi situs publik</a>
             </p>
             
             <div class="auth-copyright">

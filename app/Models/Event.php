@@ -1,5 +1,5 @@
 <?php
-// File: app/Models/Event.php
+// File: app/Models/Event.php (FINAL - TAHAP 5.1)
 declare(strict_types=1);
 
 namespace Models;
@@ -40,9 +40,6 @@ class Event {
     public static function countByStatus(): array {
         $today = date('Y-m-d');
         $pdo   = Database::getInstance();
-        $q = fn(string $w): int => (int) $pdo->prepare("SELECT COUNT(*) FROM events WHERE event_date $w :t")
-            ->execute([':t' => $today]) ? 0 : 0; // placeholder, diganti di bawah
-        // Implementasi eksplisit (lebih jelas):
         $up = $pdo->prepare('SELECT COUNT(*) FROM events WHERE event_date > :t');
         $up->execute([':t' => $today]);
         $on = $pdo->prepare('SELECT COUNT(*) FROM events WHERE event_date = :t');
@@ -62,6 +59,19 @@ class Event {
         );
         $stmt->execute();
         return (int) $stmt->fetchColumn();
+    }
+
+    /** Event mendatang untuk landing page publik */
+    public static function upcoming(int $limit = 3): array {
+        $stmt = Database::getInstance()->prepare(
+            'SELECT e.*, u.username AS creator_name
+             FROM events e LEFT JOIN users u ON u.id = e.created_by
+             WHERE e.event_date >= :today
+             ORDER BY e.event_date ASC, e.event_time ASC
+             LIMIT ' . (int) $limit
+        );
+        $stmt->execute([':today' => date('Y-m-d')]);
+        return array_map([self::class, 'decorate'], $stmt->fetchAll());
     }
 
     public static function find(int $id): ?array {

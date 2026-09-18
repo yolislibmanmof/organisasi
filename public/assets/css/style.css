@@ -1793,3 +1793,49 @@ textarea { resize: vertical; min-height: 60px; }
 .strength-weak   span { background: var(--danger); }
 .strength-fair   span { background: var(--warn); }
 .strength-strong span { background: var(--ok); }
+
+/* ============================================================
+   23. TAUTAN KEMBALI KE BERANDA (HALAMAN LOGIN)
+   ============================================================ */
+.back-home {
+    position: fixed;
+    top: 22px;
+    left: 26px;
+    z-index: 10;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-brd);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    color: var(--txt-1);
+    font-size: 13px;
+    font-weight: 700;
+    transition: .25s;
+}
+.back-home:hover {
+    color: #fff;
+    border-color: var(--pri);
+    background: rgba(99, 102, 241, 0.15);
+    transform: translateX(-3px);
+}
+.back-home i {
+    font-size: 16px;
+    transition: transform .25s;
+}
+.back-home:hover i {
+    transform: translateX(-3px);
+}
+
+/* Tombol ini hanya tampil di halaman login (bukan di dashboard) */
+@media (max-width: 980px) {
+    .back-home {
+        top: 16px;
+        left: 16px;
+        padding: 8px 14px;
+        font-size: 12px;
+    }
+}
