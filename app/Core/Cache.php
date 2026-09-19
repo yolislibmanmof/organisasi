@@ -1,117 +1,116 @@
 <?php
+// File: app/Core/Cache.php (FINAL v5.9 — SELF-INITIALIZING & FAIL-SAFE)
 declare(strict_types=1);
 
 namespace Core;
 
+/**
+ * File-based cache dengan inisialisasi otomatis.
+ * - Tidak PERLU memanggil Cache::init() (lazy init).
+ * - Bila folder cache gagal dibuat/tidak writable, cache otomatis
+ *   dinonaktifkan sehingga aplikasi TIDAK PERNAH error.
+ */
 class Cache {
-    private static string $cacheDir;
+    private static ?string $dir = null;
     private static bool $enabled = true;
 
-    public static function init(): void {
-        self::$cacheDir = __DIR__ . '/../../storage/cache/';
-        if (!is_dir(self::$cacheDir)) {
-            mkdir(self::$cacheDir, 0755, true);
+    /** Inisialisasi otomatis folder cache (dipanggil internal) */
+    private static function dir(): string {
+        if (self::$dir === null) {
+            self::$dir = dirname(__DIR__, 2) . '/storage/cache/';
+            if (!is_dir(self::$dir)) {
+                if (!@mkdir(self::$dir, 0755, true)) {
+                    self::$enabled = false;
+                }
+            }
+            if (self::$enabled && !is_writable(self::$dir)) {
+                self::$enabled = false;
+            }
         }
+        return self::$dir;
     }
 
-    public static function enable(): void {
-        self::$enabled = true;
+    /** Opsional: boleh dipanggil manual di index.php, aman bila dipanggil berulang */
+    public static function init(): void {
+        self::dir();
     }
 
-    public static function disable(): void {
-        self::$enabled = false;
-    }
+    public static function enable(): void  { self::$enabled = true; }
+    public static function disable(): void { self::$enabled = false; }
+    public static function isEnabled(): bool { return self::$enabled; }
 
+    /** Ambil data cache; return null bila tidak ada / kadaluarsa */
     public static function get(string $key): ?array {
         if (!self::$enabled) return null;
+        $file = self::filePath($key);
+        if (!is_file($file)) return null;
 
-        $file = self::getFilePath($key);
-        if (!file_exists($file)) return null;
+        $raw = @file_get_contents($file);
+        if ($raw === false) return null;
 
-        $data = @file_get_contents($file);
-        if ($data === false) return null;
+        $data = @unserialize($raw);
+        if (!is_array($data) || !isset($data['data'])) return null;
 
-        $cached = @unserialize($data);
-        if ($cached === false) return null;
-
-        if (isset($cached['expires']) && $cached['expires'] < time()) {
+        if (isset($data['expires']) && $data['expires'] < time()) {
             @unlink($file);
             return null;
         }
-
-        return $cached['data'] ?? null;
+        return $data['data'];
     }
 
+    /** Simpan data cache dengan TTL (detik) */
     public static function set(string $key, $data, int $ttl = 300): bool {
         if (!self::$enabled) return false;
-
-        $file = self::getFilePath($key);
-        $cached = [
-            'data' => $data,
+        $payload = [
+            'data'    => $data,
             'expires' => time() + $ttl,
             'created' => time(),
         ];
-
-        return @file_put_contents($file, serialize($cached), LOCK_EX) !== false;
+        return @file_put_contents(self::filePath($key), serialize($payload), LOCK_EX) !== false;
     }
 
+    /** Hapus satu kunci cache */
     public static function delete(string $key): bool {
-        $file = self::getFilePath($key);
-        if (file_exists($file)) {
-            return @unlink($file);
-        }
-        return true;
+        if (!self::$enabled) return true;
+        $file = self::filePath($key);
+        return is_file($file) ? @unlink($file) : true;
     }
 
+    /** Hapus semua cache dengan prefix tertentu (kosongkan = semua) */
     public static function flush(string $prefix = ''): int {
+        if (!self::$enabled) return 0;
+        $safe  = preg_replace('/[^A-Za-z0-9_]/', '', $prefix);
+        $files = @glob(self::dir() . $safe . '_*.cache');
+        if ($files === false) return 0;
+
         $count = 0;
-        $files = glob(self::$cacheDir . $prefix . '*.cache');
-        
-        if ($files !== false) {
-            foreach ($files as $file) {
-                if (@unlink($file)) {
-                    $count++;
-                }
-            }
+        foreach ($files as $file) {
+            if (@unlink($file)) $count++;
         }
-        
         return $count;
     }
 
-    public static function clear(): int {
-        return self::flush('');
-    }
-
+    /** Statistik cache (untuk halaman sistem/admin) */
     public static function stats(): array {
-        $files = glob(self::$cacheDir . '*.cache');
-        $totalSize = 0;
+        $files = @glob(self::dir() . '*.cache');
         $count = 0;
-        
+        $size  = 0;
         if ($files !== false) {
             foreach ($files as $file) {
-                $totalSize += filesize($file);
                 $count++;
+                $size += (int) @filesize($file);
             }
         }
-        
         return [
-            'count' => $count,
-            'size' => $totalSize,
-            'size_human' => self::formatBytes($totalSize),
+            'enabled' => self::$enabled,
+            'count'   => $count,
+            'size'    => $size,
         ];
     }
 
-    private static function getFilePath(string $key): string {
-        return self::$cacheDir . md5($key) . '.cache';
-    }
-
-    private static function formatBytes(int $bytes): string {
-        $units = ['B', 'KB', 'MB', 'GB'];
-        $i = 0;
-        while ($bytes >= 1024 && $i < count($units) - 1) {
-            $bytes /= 1024;
-            $i++;
-        }
-        return round($bytes, 2) . ' ' . $units[$i];
+    /** Nama file cache: prefix_ + md5(kunci) */
+    private static function filePath(string $key): string {
+        $safe = preg_replace('/[^A-Za-z0-9_]/', '', explode('|', $key)[0]);
+        return self::dir() . $safe . '_' . md5($key) . '.cache';
     }
 }
