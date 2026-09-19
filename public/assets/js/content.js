@@ -40,27 +40,31 @@
     document.querySelectorAll('.modal-backdrop').forEach(bd =>
         bd.addEventListener('click', (e) => { if (e.target === bd) closeModal(bd); }));
 
-    /* ========== 3. TAB SWITCHING DENGAN ANIMASI ========== */
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
-            btn.classList.add('tab-active');
-            
-            // Animasi transisi grid
-            grid.style.opacity = '0';
-            grid.style.transform = 'translateY(10px)';
-            
+/* ========== 3. TAB SWITCHING DENGAN ANIMASI ========== */
+document.querySelectorAll('.content-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.content-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // Animasi transisi grid
+        grid.style.opacity = '0';
+        grid.style.transform = 'translateY(10px)';
+        
+        setTimeout(() => {
+            type = btn.dataset.tab;
+            addLbl.textContent = 'Tambah ' + LABELS[type];
+            load();
             setTimeout(() => {
-                type = btn.dataset.tab;
-                addLbl.textContent = 'Tambah ' + LABELS[type];
-                load();
-                setTimeout(() => {
-                    grid.style.opacity = '1';
-                    grid.style.transform = 'translateY(0)';
-                }, 50);
-            }, 200);
-        });
+                grid.style.opacity = '1';
+                grid.style.transform = 'translateY(0)';
+            }, 50);
+        }, 200);
     });
+});
+
+/* ========== 3b. TOMBOL REFRESH & EMPTY ADD ========== */
+document.getElementById('btnContentRefresh')?.addEventListener('click', load);
+document.getElementById('emptyAddContent')?.addEventListener('click', () => addBtn.click());
 
     /* ========== 4. LOAD DATA ========== */
     async function load() {

@@ -234,22 +234,6 @@
         setTimeout(close, 4500);
     };
 
-    /* ========== 13. SCROLL TO TOP BUTTON ========== */
-    const scrollTopBtn = document.createElement('button');
-    scrollTopBtn.className = 'scroll-top-btn';
-    scrollTopBtn.innerHTML = '<i class="ph ph-arrow-up"></i>';
-    scrollTopBtn.setAttribute('aria-label', 'Gulir ke atas');
-    document.body.appendChild(scrollTopBtn);
-
-    scrollTopBtn.addEventListener('click', () => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-
-    window.addEventListener('scroll', () => {
-        if (window.scrollY > 400) scrollTopBtn.classList.add('show');
-        else scrollTopBtn.classList.remove('show');
-    });
-
     /* ========== 14. DROPDOWN NOTIFIKASI ENHANCED ========== */
     const notifBtn = document.getElementById('dxNotifBtn');
     const notifDrop = document.getElementById('dxNotifDropdown');
