@@ -1,16 +1,45 @@
-<!-- File: views/layouts/app.php (FINAL - TAHAP 5.7) -->
+<?php
+/**
+ * ============================================================
+ * LAYOUT DASHBOARD ADMIN — ULTIMATE EDITION v5.9
+ * Fondasi semua halaman admin dengan sidebar, topbar,
+ * command palette, dan efek visual premium.
+ * ============================================================
+ */
+?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0a0f1f">
+    <meta name="color-scheme" content="dark">
     <title><?= e($title ?? 'Dashboard') ?> • <?= e(APP_NAME) ?></title>
+
+    <!-- Favicon dinamis -->
+    <?php $customFav = setting('favicon'); ?>
+    <?php if ($customFav !== ''): ?>
+        <link rel="icon" href="<?= url('assets/uploads/brand/' . e($customFav)) ?>">
+    <?php else: ?>
+        <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><defs><linearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22><stop offset=%220%22 stop-color=%22%236366f1%22/><stop offset=%221%22 stop-color=%22%2322d3ee%22/></linearGradient></defs><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22url(%23g)%22/><text x=%2250%22 y=%2268%22 font-family=%22Arial%22 font-size=%2256%22 font-weight=%22900%22 fill=%22white%22 text-anchor=%22middle%22>OU</text></svg>">
+    <?php endif; ?>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
     <link rel="stylesheet" href="<?= asset('css/style.css') ?>">
 
+    <!-- ========== STYLING LAYOUT-SPECIFIC ========== -->
     <style>
+        /* ---- Noise overlay untuk depth visual ---- */
+        .noise-overlay {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            opacity: .015; mix-blend-mode: overlay;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+
+        /* ---- Sidebar branding ---- */
         .side-brand { display: flex; align-items: center; gap: 8px; padding: 4px 2px 16px 10px; }
         .brand-text { flex: 1; min-width: 0; }
         .side-brand .logo-mark { width: 36px; height: 36px; font-size: 13px; border-radius: 11px; }
@@ -32,6 +61,7 @@
         .side-collapse-btn i { font-size: 11px; }
         .sidebar.collapsed .side-brand { flex-direction: column; align-items: center; gap: 10px; padding: 6px 0 14px; }
 
+        /* ---- User card indicator ---- */
         .side-user-card { position: relative; }
         .dx-sidebar-pulse {
             position: absolute; top: -4px; right: -4px;
@@ -46,12 +76,15 @@
             100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
         }
 
+        /* ---- Topbar extras ---- */
         .dx-topbar-extra {
             display: flex; align-items: center; gap: 8px;
             padding: 6px 14px; border-radius: 10px;
             background: rgba(16,185,129,.08); border: 1px solid rgba(16,185,129,.2);
             font-size: 11.5px; font-weight: 700; color: #6ee7b7;
+            transition: all .2s;
         }
+        .dx-topbar-extra:hover { background: rgba(16,185,129,.15); transform: translateY(-1px); }
         .dx-topbar-extra i { font-size: 14px; }
         .dx-time-display {
             display: flex; align-items: center; gap: 8px;
@@ -69,7 +102,45 @@
             color: #a5b4fc; font-size: 10.5px; font-weight: 800; letter-spacing: .6px;
         }
 
-        /* ---- Dropdown Notifikasi ---- */
+        /* ---- User Dropdown Menu ---- */
+        .dx-user-wrap { position: relative; }
+        .dx-user-dropdown {
+            position: absolute; top: calc(100% + 10px); right: 0;
+            width: 280px; padding: 8px;
+            background: rgba(15, 21, 48, .95);
+            backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-brd);
+            border-radius: 16px;
+            box-shadow: 0 30px 80px rgba(2,6,23,.7);
+            opacity: 0; visibility: hidden;
+            transform: translateY(-8px) scale(.96);
+            transition: all .25s cubic-bezier(.22,1,.36,1);
+            z-index: 50;
+        }
+        .dx-user-dropdown.show { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
+        .dx-user-head {
+            display: flex; gap: 12px; align-items: center;
+            padding: 12px 14px; border-radius: 10px;
+            background: rgba(255,255,255,.03);
+            border: 1px solid var(--glass-brd);
+            margin-bottom: 8px;
+        }
+        .dx-user-head strong { display: block; font-size: 13px; font-weight: 700; }
+        .dx-user-head small { color: var(--txt-1); font-size: 11px; }
+        .dx-user-menu { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+        .dx-user-menu a {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 12px; border-radius: 9px;
+            font-size: 12.5px; font-weight: 600; color: var(--txt-0);
+            transition: all .2s;
+        }
+        .dx-user-menu a i { font-size: 16px; color: var(--acc); }
+        .dx-user-menu a:hover { background: rgba(99,102,241,.12); transform: translateX(2px); }
+        .dx-user-menu a.danger { color: #fca5a5; }
+        .dx-user-menu a.danger i { color: var(--danger); }
+        .dx-user-menu a.danger:hover { background: rgba(239,68,68,.12); }
+
+        /* ---- Notifikasi Dropdown ---- */
         .dx-notif-wrap { position: relative; }
         .dx-notif-dropdown {
             position: absolute; top: calc(100% + 10px); right: 0;
@@ -96,10 +167,8 @@
         .dx-notif-item {
             display: flex; gap: 12px; align-items: flex-start;
             padding: 10px; border-radius: 10px;
-            cursor: pointer;
-            transition: .2s;
-            text-decoration: none;
-            color: inherit;
+            cursor: pointer; transition: .2s;
+            text-decoration: none; color: inherit;
         }
         .dx-notif-item:hover { background: rgba(255,255,255,.05); }
         .dx-notif-icon {
@@ -114,9 +183,47 @@
         .dx-notif-empty { padding: 30px 20px; text-align: center; color: var(--txt-2); font-size: 12.5px; }
         .dx-notif-empty i { font-size: 28px; display: block; margin-bottom: 8px; }
 
+        /* ---- Floating Action Button (FAB) ---- */
+        .fab-zone {
+            position: fixed; bottom: 28px; right: 28px; z-index: 40;
+            display: flex; flex-direction: column-reverse; align-items: center; gap: 10px;
+        }
+        .fab-main {
+            width: 54px; height: 54px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--pri), var(--acc));
+            border: none; color: #fff; cursor: pointer;
+            display: grid; place-items: center;
+            font-size: 22px;
+            box-shadow: 0 12px 30px rgba(99,102,241,.45);
+            transition: all .3s var(--ease-smooth);
+        }
+        .fab-main:hover { transform: rotate(90deg) scale(1.08); box-shadow: 0 16px 40px rgba(34,211,238,.4); }
+        .fab-menu {
+            display: flex; flex-direction: column; gap: 8px;
+            opacity: 0; visibility: hidden;
+            transform: translateY(10px) scale(.9);
+            transition: all .25s var(--ease-elastic);
+        }
+        .fab-zone.open .fab-menu { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
+        .fab-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 14px; border-radius: 99px;
+            background: rgba(15, 21, 48, .95);
+            backdrop-filter: blur(14px);
+            border: 1px solid var(--glass-brd);
+            color: var(--txt-0); font-size: 12px; font-weight: 700;
+            text-decoration: none; white-space: nowrap;
+            box-shadow: 0 10px 25px rgba(2,6,23,.4);
+            transition: all .2s;
+        }
+        .fab-item i { color: var(--acc); font-size: 16px; }
+        .fab-item:hover { transform: translateX(-4px); border-color: var(--pri); background: rgba(99,102,241,.15); }
+
+        /* ---- Responsive ---- */
         @media (max-width: 720px) {
             .dx-topbar-extra, .dx-time-display { display: none; }
             .dx-notif-dropdown { width: calc(100vw - 32px); right: -60px; }
+            .fab-zone { bottom: 20px; right: 20px; }
         }
     </style>
 </head>
@@ -133,9 +240,16 @@
     $isAdmin     = ($user['role'] ?? '') === 'admin';
 ?>
 <body data-base="<?= e(BASE_URL) ?>" class="app-shell">
+    <!-- Noise overlay untuk depth visual -->
+    <div class="noise-overlay" aria-hidden="true"></div>
+    
+    <!-- Loading bar -->
+    <div class="loading-bar" id="dxLoadingBar" aria-hidden="true"></div>
+    
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-    <aside class="sidebar glass-panel" id="sidebar">
+    <!-- ========== SIDEBAR ========== -->
+    <aside class="sidebar glass-panel" id="sidebar" aria-label="Navigasi utama">
         <div class="side-brand">
             <span class="logo-mark">OU</span>
             <span class="brand-text"><?= e(APP_NAME) ?></span>
@@ -160,6 +274,7 @@
                 <i class="ph ph-user-circle-gear"></i><span class="nav-label">Profil Saya</span>
             </a>
             <?php if ($isAdmin): ?>
+            <div class="side-section-label"><span>Administrasi</span></div>
             <a href="<?= url('articles') ?>" class="nav-item <?= $isArticles ? 'active' : '' ?>">
                 <i class="ph ph-newspaper"></i><span class="nav-label">Artikel</span>
             </a>
@@ -192,7 +307,9 @@
         </div>
     </aside>
 
+    <!-- ========== MAIN AREA ========== -->
     <div class="app-main">
+        <!-- TOPBAR -->
         <header class="topbar glass-panel">
             <div class="top-left">
                 <button class="icon-btn topbar-toggle" id="btnMobileMenu" aria-label="Buka menu">
@@ -235,34 +352,116 @@
                     </div>
                 </div>
                 <?php else: ?>
-                <button class="icon-btn top-icon-btn" title="Notifikasi" aria-label="Notifikasi">
+                <button class="icon-btn top-icon-btn" title="Notifikasi" aria-label="Notifikasi" disabled>
                     <i class="ph ph-bell"></i>
                 </button>
                 <?php endif; ?>
-                <div class="top-user">
-                    <?= avatar_tag($user) ?>
+                
+                <!-- User Dropdown -->
+                <div class="dx-user-wrap">
+                    <button class="top-user" id="dxUserBtn" aria-label="Menu pengguna" style="background:none;border:none;cursor:pointer;padding:0">
+                        <?= avatar_tag($user) ?>
+                    </button>
+                    <div class="dx-user-dropdown" id="dxUserDropdown">
+                        <div class="dx-user-head">
+                            <?= avatar_tag($user, 'avatar-sm') ?>
+                            <div>
+                                <strong><?= e($user['name'] ?? 'Pengguna') ?></strong>
+                                <small><?= e(ucfirst($user['role'] ?? 'member')) ?></small>
+                            </div>
+                        </div>
+                        <ul class="dx-user-menu">
+                            <li><a href="<?= url('profile') ?>"><i class="ph ph-user-circle-gear"></i> Profil Saya</a></li>
+                            <?php if ($isAdmin): ?>
+                            <li><a href="<?= url('settings') ?>"><i class="ph ph-gear-six"></i> Pengaturan</a></li>
+                            <?php endif; ?>
+                            <li><a href="#" onclick="window.print(); return false;"><i class="ph ph-printer"></i> Cetak Halaman</a></li>
+                            <li><a href="#" id="dxShortcutHint"><i class="ph ph-keyboard"></i> Pintasan <kbd style="margin-left:auto;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,.08);font-size:10px;font-weight:700">Ctrl+/</kbd></a></li>
+                            <li><a href="<?= url('logout') ?>" class="danger"><i class="ph ph-sign-out"></i> Keluar</a></li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </header>
 
+        <!-- CONTENT -->
         <main class="app-content"><?= $content ?></main>
 
+        <!-- FOOTER -->
         <footer class="app-footer">
             <span>© <?= date('Y') ?> <strong><?= e(APP_NAME) ?></strong></span>
-            <span class="dx-footer-version">v3.0 ULTIMATE</span>
+            <span class="dx-footer-version">v5.9 ULTIMATE</span>
             <span class="footer-sep">•</span>
             <span>Dibangun dengan PHP 8+ & Vanilla JS</span>
         </footer>
     </div>
 
-    <div class="toast-zone" id="toastZone"></div>
+    <!-- ========== FLOATING ACTION BUTTON ========== -->
+    <?php if ($isAdmin): ?>
+    <div class="fab-zone" id="fabZone">
+        <button class="fab-main" id="fabMain" aria-label="Aksi cepat" title="Aksi cepat">
+            <i class="ph ph-plus"></i>
+        </button>
+        <div class="fab-menu">
+            <a href="<?= url('members') ?>?action=add" class="fab-item">
+                <i class="ph ph-user-plus"></i><span>Anggota Baru</span>
+            </a>
+            <a href="<?= url('events') ?>?action=add" class="fab-item">
+                <i class="ph ph-calendar-plus"></i><span>Event Baru</span>
+            </a>
+            <a href="<?= url('articles') ?>?action=add" class="fab-item">
+                <i class="ph ph-article"></i><span>Artikel Baru</span>
+            </a>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- TOAST ZONE -->
+    <div class="toast-zone" id="toastZone" aria-live="polite"></div>
+
+    <!-- SCRIPTS -->
     <script src="<?= asset('js/app.js') ?>"></script>
     <script>
     (() => {
-        const el = document.getElementById('dxClockText');
-        if (!el) return;
-        const tick = () => el.textContent = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        tick(); setInterval(tick, 1000);
+        'use strict';
+        
+        // ---- Jam real-time ----
+        const clockEl = document.getElementById('dxClockText');
+        if (clockEl) {
+            const tick = () => clockEl.textContent = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            tick(); setInterval(tick, 1000);
+        }
+        
+        // ---- User dropdown toggle ----
+        const userBtn = document.getElementById('dxUserBtn');
+        const userDrop = document.getElementById('dxUserDropdown');
+        if (userBtn && userDrop) {
+            userBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                userDrop.classList.toggle('show');
+            });
+            document.addEventListener('click', (e) => {
+                if (!userDrop.contains(e.target) && !userBtn.contains(e.target)) {
+                    userDrop.classList.remove('show');
+                }
+            });
+        }
+        
+        // ---- FAB toggle ----
+        const fabZone = document.getElementById('fabZone');
+        const fabMain = document.getElementById('fabMain');
+        if (fabZone && fabMain) {
+            fabMain.addEventListener('click', () => fabZone.classList.toggle('open'));
+            document.addEventListener('click', (e) => {
+                if (!fabZone.contains(e.target)) fabZone.classList.remove('open');
+            });
+        }
+        
+        // ---- Shortcut hint ----
+        document.getElementById('dxShortcutHint')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: '/', ctrlKey: true }));
+        });
     })();
     </script>
 </body>
