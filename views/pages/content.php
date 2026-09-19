@@ -1,4 +1,4 @@
-<!-- File: views/pages/content.php (FINAL - TAHAP 5.6) -->
+<!-- File: views/pages/content.php (FINAL - TAHAP 5.8) -->
 <section class="page-head">
     <div class="page-head-info">
         <div class="page-eyebrow">Kustomisasi</div>
@@ -44,9 +44,14 @@
                 <label class="field"><span class="field-label">Nama Lengkap <em>*</em></span>
                     <input type="text" name="full_name" id="oName" required>
                     <span class="field-error" data-error="full_name"></span></label>
-                <label class="field"><span class="field-label">Jabatan <em>*</em></span>
-                    <input type="text" name="position" id="oPosition" placeholder="Contoh: Ketua Umum" required>
-                    <span class="field-error" data-error="position"></span></label>
+                <div class="field-row">
+                    <label class="field"><span class="field-label">Jabatan <em>*</em></span>
+                        <input type="text" name="position" id="oPosition" placeholder="Contoh: Ketua Umum" required>
+                        <span class="field-error" data-error="position"></span></label>
+                    <label class="field"><span class="field-label">Bidang</span>
+                        <input type="text" name="division" id="oDivision" placeholder="Contoh: Pengembangan Nalar Intelektual">
+                        <small class="asset-hint">Kosongkan jika tidak dikelompokkan.</small></label>
+                </div>
                 <div class="field-row">
                     <label class="field"><span class="field-label">Foto (opsional)</span>
                         <input type="file" name="photo" accept="image/jpeg,image/png,image/webp"></label>

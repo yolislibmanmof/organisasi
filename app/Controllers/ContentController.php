@@ -1,5 +1,5 @@
 <?php
-// File: app/Controllers/ContentController.php (FINAL - TAHAP 5.6)
+// File: app/Controllers/ContentController.php (FINAL - TAHAP 5.8)
 declare(strict_types=1);
 
 namespace Controllers;
@@ -144,12 +144,14 @@ class ContentController {
         $errors = [];
         $name   = trim((string) ($_POST['full_name'] ?? ''));
         $pos    = trim((string) ($_POST['position'] ?? ''));
+        $div    = trim((string) ($_POST['division'] ?? ''));
         if (mb_strlen($name) < 3) $errors['full_name'] = 'Nama minimal 3 karakter.';
         if ($pos === '')          $errors['position']  = 'Jabatan wajib diisi.';
         return $errors !== [] ? ['errors' => $errors]
             : [
                 'full_name'  => $name,
                 'position'   => $pos,
+                'division'   => $div !== '' ? $div : null,
                 'sort_order' => (int) ($_POST['sort_order'] ?? 0),
                 'bio'        => trim((string) ($_POST['bio'] ?? '')),
             ];

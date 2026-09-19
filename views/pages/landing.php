@@ -1,4 +1,4 @@
-<!-- File: views/pages/landing.php (FINAL - TAHAP 5.6) -->
+<!-- File: views/pages/landing.php (FINAL - TAHAP 5.8) -->
 <?php
     $appName = setting('app_name', 'Organisasi');
     $visi    = trim((string) setting('visi'));
@@ -6,6 +6,7 @@
     $misiList = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', $misiRaw))));
     $motto   = trim((string) setting('motto'));
     $period  = trim((string) setting('cabinet_period'));
+    $officersByDiv = \Models\Officer::groupByDivision();
 ?>
 
 <!-- ============ HERO ============ -->
@@ -225,40 +226,48 @@
     <?php endif; ?>
 </section>
 
-<!-- ============ STRUKTUR KEPENGURUSAN (DENGAN TOMBOL PROFIL) ============ -->
-<?php if (!empty($officers)): ?>
+<!-- ============ STRUKTUR KEPENGURUSAN PER BIDANG ============ -->
+<?php if (!empty($officersByDiv)): ?>
 <section class="pub-section" id="pengurus">
     <div class="section-head reveal">
         <span class="page-eyebrow">Organisasi</span>
         <h2>Struktur Kepengurusan</h2>
         <p>Jajaran pengurus yang memimpin perjalanan organisasi periode ini.</p>
     </div>
-    <div class="officer-grid">
-        <?php foreach ($officers as $o): ?>
-        <article class="glass-card officer-card reveal">
-            <div class="officer-photo">
-                <?php if (!empty($o['photo'])): ?>
-                    <img src="<?= url('assets/uploads/officers/' . e($o['photo'])) ?>" alt="<?= e($o['full_name']) ?>">
-                <?php else: ?>
-                    <span class="officer-initial"><?= e(strtoupper(substr($o['full_name'], 0, 1))) ?></span>
+
+    <?php foreach ($officersByDiv as $divName => $officers): ?>
+    <div class="reveal" style="margin-bottom:32px;">
+        <h3 style="font-size:16px;font-weight:700;color:var(--acc);margin-bottom:18px;display:flex;align-items:center;gap:10px;">
+            <i class="ph ph-buildings"></i> <?= e($divName) ?>
+        </h3>
+        <div class="officer-grid">
+            <?php foreach ($officers as $o): ?>
+            <article class="glass-card officer-card reveal">
+                <div class="officer-photo">
+                    <?php if (!empty($o['photo'])): ?>
+                        <img src="<?= url('assets/uploads/officers/' . e($o['photo'])) ?>" alt="<?= e($o['full_name']) ?>">
+                    <?php else: ?>
+                        <span class="officer-initial"><?= e(strtoupper(substr($o['full_name'], 0, 1))) ?></span>
+                    <?php endif; ?>
+                    <span class="officer-glow"></span>
+                </div>
+                <h3><?= e($o['full_name']) ?></h3>
+                <span class="officer-position"><?= e($o['position']) ?></span>
+                <?php if (!empty($o['bio'])): ?>
+                <button class="btn btn-ghost btn-xs officer-profile-btn"
+                        data-name="<?= e($o['full_name']) ?>"
+                        data-position="<?= e($o['position']) ?>"
+                        data-photo="<?= !empty($o['photo']) ? e(url('assets/uploads/officers/' . $o['photo'])) : '' ?>"
+                        data-initial="<?= e(strtoupper(substr($o['full_name'], 0, 1))) ?>"
+                        data-bio="<?= e($o['bio']) ?>">
+                    <i class="ph ph-user-circle"></i><span class="btn-text">Lihat Profile</span>
+                </button>
                 <?php endif; ?>
-                <span class="officer-glow"></span>
-            </div>
-            <h3><?= e($o['full_name']) ?></h3>
-            <span class="officer-position"><?= e($o['position']) ?></span>
-            <?php if (!empty($o['bio'])): ?>
-            <button class="btn btn-ghost btn-xs officer-profile-btn"
-                    data-name="<?= e($o['full_name']) ?>"
-                    data-position="<?= e($o['position']) ?>"
-                    data-photo="<?= !empty($o['photo']) ? e(url('assets/uploads/officers/' . $o['photo'])) : '' ?>"
-                    data-initial="<?= e(strtoupper(substr($o['full_name'], 0, 1))) ?>"
-                    data-bio="<?= e($o['bio']) ?>">
-                <i class="ph ph-user-circle"></i><span class="btn-text">Lihat Profile</span>
-            </button>
-            <?php endif; ?>
-        </article>
-        <?php endforeach; ?>
+            </article>
+            <?php endforeach; ?>
+        </div>
     </div>
+    <?php endforeach; ?>
 </section>
 <?php endif; ?>
 
@@ -370,7 +379,7 @@
     </div>
 </div>
 
-<!-- ============ GAYA INTERNAL TAHAP 5.6 ============ -->
+<!-- ============ GAYA INTERNAL TAHAP 5.8 ============ -->
 <style>
     .motto-band {
         margin-top: 36px;

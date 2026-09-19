@@ -1,4 +1,4 @@
-<!-- File: views/pages/about.php (TAHAP 5.7) -->
+<!-- File: views/pages/about.php (FINAL - TAHAP 5.8) -->
 <?php
     $appName = setting('app_name', 'Organisasi');
     $visi    = trim((string) setting('visi'));
@@ -57,27 +57,38 @@
     </div>
     <?php endif; ?>
 
-    <!-- Struktur Pengurus -->
-    <?php if (!empty($officers)): ?>
+    <!-- Struktur Pengurus Per Bidang -->
+    <?php
+        $officersByDiv = \Models\Officer::groupByDivision();
+        if (!empty($officersByDiv)):
+    ?>
     <section class="glass-card reveal" style="padding:36px 38px;">
         <h2 style="font-size:20px;font-weight:800;margin-bottom:6px;">Struktur Kepengurusan</h2>
         <p style="color:var(--txt-1);font-size:13.5px;margin-bottom:24px;">Jajaran pengurus yang memimpin perjalanan organisasi periode ini.</p>
-        <div class="officer-grid">
-            <?php foreach ($officers as $o): ?>
-            <article class="glass-card officer-card">
-                <div class="officer-photo">
-                    <?php if (!empty($o['photo'])): ?>
-                        <img src="<?= url('assets/uploads/officers/' . e($o['photo'])) ?>" alt="<?= e($o['full_name']) ?>">
-                    <?php else: ?>
-                        <span class="officer-initial"><?= e(strtoupper(substr($o['full_name'], 0, 1))) ?></span>
-                    <?php endif; ?>
-                    <span class="officer-glow"></span>
-                </div>
-                <h3><?= e($o['full_name']) ?></h3>
-                <span class="officer-position"><?= e($o['position']) ?></span>
-            </article>
-            <?php endforeach; ?>
+
+        <?php foreach ($officersByDiv as $divName => $officers): ?>
+        <div style="margin-bottom:32px;">
+            <h3 style="font-size:15px;font-weight:700;color:var(--acc);margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+                <i class="ph ph-buildings"></i> <?= e($divName) ?>
+            </h3>
+            <div class="officer-grid">
+                <?php foreach ($officers as $o): ?>
+                <article class="glass-card officer-card">
+                    <div class="officer-photo">
+                        <?php if (!empty($o['photo'])): ?>
+                            <img src="<?= url('assets/uploads/officers/' . e($o['photo'])) ?>" alt="<?= e($o['full_name']) ?>">
+                        <?php else: ?>
+                            <span class="officer-initial"><?= e(strtoupper(substr($o['full_name'], 0, 1))) ?></span>
+                        <?php endif; ?>
+                        <span class="officer-glow"></span>
+                    </div>
+                    <h3><?= e($o['full_name']) ?></h3>
+                    <span class="officer-position"><?= e($o['position']) ?></span>
+                </article>
+                <?php endforeach; ?>
+            </div>
         </div>
+        <?php endforeach; ?>
     </section>
     <?php endif; ?>
 </div>
