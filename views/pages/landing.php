@@ -1,4 +1,4 @@
-<!-- File: views/pages/landing.php -->
+<!-- File: views/pages/landing.php (FINAL - TAHAP 5.2) -->
 <!-- ============ HERO ============ -->
 <section class="pub-hero">
     <div class="hero-inner">
@@ -164,6 +164,129 @@
             <h3>Komunitas & Alumni</h3>
             <p>Jaringan lintas generasi yang terus berkontribusi bagi masyarakat.</p>
         </article>
+    </div>
+</section>
+
+<!-- ============ ARTIKEL TERBARU ============ -->
+<section class="pub-section" id="artikel-terbaru">
+    <div class="section-head reveal">
+        <span class="page-eyebrow">Publikasi</span>
+        <h2>Artikel Terbaru</h2>
+        <p>Informasi, edukasi, dan kabar terbaru dari organisasi.</p>
+    </div>
+    <?php if (!empty($articles)): ?>
+        <div class="pub-articles">
+            <?php foreach ($articles as $a): ?>
+                <a href="<?= url('artikel/' . (int) $a['id']) ?>" class="glass-card pub-article-card reveal">
+                    <div class="pac-cover cat-<?= strtolower(str_replace(' ', '-', $a['category'])) ?>">
+                        <i class="ph ph-newspaper"></i>
+                        <span><?= e($a['category']) ?></span>
+                    </div>
+                    <div class="pac-body">
+                        <time><?= date('d M Y', strtotime($a['created_at'])) ?></time>
+                        <h3><?= e($a['title']) ?></h3>
+                        <p><?= e(mb_strimwidth((string) ($a['excerpt'] ?? ''), 0, 100, '…')) ?></p>
+                    </div>
+                </a>
+            <?php endforeach; ?>
+        </div>
+        <div class="pub-more">
+            <a href="<?= url('artikel') ?>" class="btn btn-ghost">
+                <span class="btn-text">Lihat Semua Artikel</span><i class="ph ph-arrow-right"></i>
+            </a>
+        </div>
+    <?php else: ?>
+        <div class="glass-card pub-empty reveal" style="max-width:540px;margin:0 auto;">
+            <i class="ph ph-newspaper"></i>
+            <p>Belum ada artikel yang diterbitkan. Pantau terus halaman ini!</p>
+        </div>
+    <?php endif; ?>
+</section>
+
+<!-- ============ STRUKTUR KEPENGURUSAN ============ -->
+<?php if (!empty($officers)): ?>
+<section class="pub-section" id="pengurus">
+    <div class="section-head reveal">
+        <span class="page-eyebrow">Organisasi</span>
+        <h2>Struktur Kepengurusan</h2>
+        <p>Jajaran pengurus yang memimpin perjalanan organisasi periode ini.</p>
+    </div>
+    <div class="officer-grid">
+        <?php foreach ($officers as $o): ?>
+        <article class="glass-card officer-card reveal">
+            <div class="officer-photo">
+                <?php if (!empty($o['photo'])): ?>
+                    <img src="<?= url('assets/uploads/officers/' . e($o['photo'])) ?>" alt="<?= e($o['full_name']) ?>">
+                <?php else: ?>
+                    <span class="officer-initial"><?= e(strtoupper(substr($o['full_name'], 0, 1))) ?></span>
+                <?php endif; ?>
+                <span class="officer-glow"></span>
+            </div>
+            <h3><?= e($o['full_name']) ?></h3>
+            <span class="officer-position"><?= e($o['position']) ?></span>
+        </article>
+        <?php endforeach; ?>
+    </div>
+</section>
+<?php endif; ?>
+
+<!-- ============ KATA ALUMNI (MARQUEE) ============ -->
+<?php if (!empty($testimonials)): ?>
+<section class="pub-section" id="alumni">
+    <div class="section-head reveal">
+        <span class="page-eyebrow">Testimoni</span>
+        <h2>Kata Alumni</h2>
+        <p>Cerita dan kesan dari mereka yang pernah bertumbuh bersama.</p>
+    </div>
+    <div class="marquee reveal">
+        <div class="marquee-track">
+            <?php foreach (array_merge($testimonials, $testimonials) as $t): ?>
+            <article class="glass-card quote-card">
+                <i class="ph ph-quotes quote-mark"></i>
+                <p><?= e($t['quote']) ?></p>
+                <div class="quote-who">
+                    <span class="avatar avatar-sm"><?= e(strtoupper(substr($t['name'], 0, 1))) ?></span>
+                    <div><strong><?= e($t['name']) ?></strong><small><?= e($t['role'] ?? 'Alumni') ?></small></div>
+                </div>
+            </article>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
+
+<!-- ============ GALERI KEGIATAN (MASONRY + LIGHTBOX) ============ -->
+<?php if (!empty($galleries)): ?>
+<section class="pub-section" id="galeri">
+    <div class="section-head reveal">
+        <span class="page-eyebrow">Dokumentasi</span>
+        <h2>Galeri Kegiatan</h2>
+        <p>Kilasan momen dari berbagai kegiatan organisasi.</p>
+    </div>
+    <div class="masonry reveal">
+        <?php foreach ($galleries as $g): ?>
+        <figure class="masonry-item gallery-item"
+                data-full="<?= url('assets/uploads/galleries/' . e($g['image'])) ?>"
+                data-title="<?= e($g['title']) ?>">
+            <img src="<?= url('assets/uploads/galleries/' . e($g['image'])) ?>" alt="<?= e($g['title']) ?>" loading="lazy">
+            <figcaption><i class="ph ph-magnifying-glass-plus"></i> <?= e($g['title']) ?></figcaption>
+        </figure>
+        <?php endforeach; ?>
+    </div>
+</section>
+<?php endif; ?>
+
+<!-- ============ BANNER SENSUS ============ -->
+<section class="pub-section">
+    <div class="census-band glass-card reveal">
+        <div class="census-copy">
+            <span class="page-eyebrow">Sensus Anggota</span>
+            <h2>Dalam rangka digitalisasi database anggota.</h2>
+            <p>Bantu kami merekap seluruh anggota maupun alumni agar terhubung dalam satu sistem terpadu.</p>
+        </div>
+        <a href="<?= url('sensus') ?>" class="btn btn-primary btn-lg">
+            <i class="ph ph-clipboard-text"></i><span class="btn-text">Isi Sensus Sekarang</span>
+        </a>
     </div>
 </section>
 

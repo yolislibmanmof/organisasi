@@ -1,4 +1,4 @@
-// File: public/assets/js/public.js
+// File: public/assets/js/public.js (FINAL - TERKOREKSI)
 (() => {
     'use strict';
 
@@ -12,6 +12,7 @@
     const burger = document.getElementById('pubBurger');
     const links  = document.getElementById('pubNavLinks');
     burger?.addEventListener('click', () => {
+        if (!links) return;
         links.classList.toggle('open');
         burger.querySelector('i').className = links.classList.contains('open') ? 'ph ph-x' : 'ph ph-list';
     });
@@ -100,6 +101,33 @@
             const x = (e.clientX / window.innerWidth - 0.5) * 16;
             const y = (e.clientY / window.innerHeight - 0.5) * 16;
             visual.style.transform = `translate(${x}px, ${y}px)`;
+        });
+    }
+
+    /* ---------- 8. Lightbox galeri (KINI DI DALAM IIFE) ---------- */
+    const lightbox = document.getElementById('lightbox');
+    const lbImg    = document.getElementById('lightboxImg');
+    const lbCap    = document.getElementById('lightboxCap');
+
+    if (lightbox && lbImg) {
+        const closeLightbox = () => {
+            lightbox.classList.remove('show');
+            document.body.style.overflow = '';
+        };
+
+        document.querySelectorAll('.gallery-item').forEach(item => {
+            item.addEventListener('click', () => {
+                lbImg.src = item.dataset.full || '';
+                if (lbCap) lbCap.textContent = item.dataset.title || '';
+                lightbox.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            });
+        });
+
+        document.getElementById('lightboxClose')?.addEventListener('click', closeLightbox);
+        lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && lightbox.classList.contains('show')) closeLightbox();
         });
     }
 })();

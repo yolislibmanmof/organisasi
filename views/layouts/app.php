@@ -1,4 +1,4 @@
-<!-- File: views/layouts/app.php (FINAL - TERINTEGRASI TAHAP 4.2) -->
+<!-- File: views/layouts/app.php (FINAL - TAHAP 5.2) -->
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -16,6 +16,9 @@
     $isMembers     = str_contains($currentPath, '/members');
     $isEvents      = str_contains($currentPath, '/events');
     $isProfile     = str_contains($currentPath, '/profile');
+    $isArticles    = str_contains($currentPath, '/articles');
+    $isContent     = str_contains($currentPath, '/content');
+    $isCensus      = str_contains($currentPath, '/census');
 ?>
 <body data-base="<?= e(BASE_URL) ?>" class="app-shell">
     <!-- Overlay mobile -->
@@ -51,6 +54,22 @@
                 <i class="ph ph-user-circle-gear"></i>
                 <span class="nav-label">Profil Saya</span>
             </a>
+            <?php if (($user['role'] ?? '') === 'admin'): ?>
+            <a href="<?= url('articles') ?>" class="nav-item <?= $isArticles ? 'active' : '' ?>">
+                <i class="ph ph-newspaper"></i>
+                <span class="nav-label">Artikel</span>
+            </a>
+
+            <a href="<?= url('content') ?>" class="nav-item <?= $isContent ? 'active' : '' ?>">
+                <i class="ph ph-paint-brush"></i>
+                <span class="nav-label">Konten Situs</span>
+            </a>
+            <a href="<?= url('census') ?>" class="nav-item <?= $isCensus ? 'active' : '' ?>">
+                <i class="ph ph-clipboard-text"></i>
+                <span class="nav-label">Sensus Anggota</span>
+                <span class="nav-badge" id="censusBadge" style="display:none">0</span>
+            </a>
+            <?php endif; ?>
         </nav>
 
         <div class="side-section-label"><span>Sesi</span></div>

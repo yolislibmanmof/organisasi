@@ -1,4 +1,4 @@
-<!-- File: views/layouts/public.php -->
+<!-- File: views/layouts/public.php (FINAL - TAHAP 5.2) -->
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -21,6 +21,8 @@
         <span class="mesh-orb mesh-orb-3"></span>
     </div>
 
+    <?php $pubPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH); ?>
+
     <!-- NAVBAR PUBLIK -->
     <header class="pub-navbar" id="pubNavbar">
         <div class="pub-nav-inner">
@@ -29,10 +31,12 @@
                 <span><?= e(APP_NAME) ?></span>
             </a>
             <nav class="pub-nav-links" id="pubNavLinks">
-                <a href="<?= url('') ?>" class="pub-link active">Beranda</a>
+                <a href="<?= url('') ?>" class="pub-link <?= (str_contains($pubPath, '/artikel') || str_contains($pubPath, '/sensus')) ? '' : 'active' ?>">Beranda</a>
                 <a href="<?= url('') ?>#tentang" class="pub-link" data-scroll>Tentang</a>
                 <a href="<?= url('') ?>#event" class="pub-link" data-scroll>Event</a>
-                <a href="<?= url('') ?>#keunggulan" class="pub-link" data-scroll>Keunggulan</a>
+                <a href="<?= url('artikel') ?>" class="pub-link <?= str_contains($pubPath, '/artikel') ? 'active' : '' ?>">Artikel</a>
+                <a href="<?= url('') ?>#galeri" class="pub-link" data-scroll>Galeri</a>
+                <a href="<?= url('sensus') ?>" class="pub-link <?= str_contains($pubPath, '/sensus') ? 'active' : '' ?>">Sensus</a>
                 <a href="<?= url('') ?>#kontak" class="pub-link" data-scroll>Kontak</a>
             </nav>
             <div class="pub-nav-cta">
@@ -72,6 +76,7 @@
                 <a href="<?= url('') ?>">Beranda</a>
                 <a href="<?= url('') ?>#tentang" data-scroll>Tentang</a>
                 <a href="<?= url('') ?>#event" data-scroll>Event</a>
+                <a href="<?= url('artikel') ?>">Artikel</a>
                 <a href="<?= url('login') ?>">Masuk Anggota</a>
             </div>
             <div class="footer-col">
@@ -86,7 +91,12 @@
             <span>Dibangun dengan PHP 8+ & Vanilla JS</span>
         </div>
     </footer>
-
+    <!-- Lightbox galeri -->
+    <div class="lightbox" id="lightbox">
+        <button class="lightbox-close" id="lightboxClose" aria-label="Tutup"><i class="ph ph-x"></i></button>
+        <img src="" alt="" id="lightboxImg">
+        <p id="lightboxCap"></p>
+    </div>
     <script src="<?= asset('js/public.js') ?>"></script>
 </body>
 </html>
