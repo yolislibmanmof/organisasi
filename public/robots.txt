@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /login
+Disallow: /members
+Disallow: /events
+Disallow: /profile
+Disallow: /articles
+Disallow: /content
+Disallow: /census
+Disallow: /settings
+
+Sitemap: /sitemap.xml

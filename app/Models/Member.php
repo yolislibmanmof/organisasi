@@ -1,5 +1,5 @@
 <?php
-// File: app/Models/Member.php (FINAL - TAHAP 4.3)
+// File: app/Models/Member.php (FINAL - TAHAP 5.5)
 declare(strict_types=1);
 
 namespace Models;
@@ -18,7 +18,6 @@ class Member {
         return (int) Database::getInstance()->query('SELECT COUNT(*) FROM members')->fetchColumn();
     }
 
-    /** Pencarian + paginasi untuk API live-search */
     public static function search(string $keyword = '', int $page = 1, int $perPage = 8): array {
         $like   = '%' . $keyword . '%';
         $offset = ($page - 1) * $perPage;
@@ -62,7 +61,6 @@ class Member {
         return (int) $stmt->fetchColumn() > 0;
     }
 
-    /** Membuat username otomatis dari nama, mis. "Budi Santoso" → budi.santoso */
     public static function generateUsername(string $fullName): string {
         $parts = preg_split('/\s+/', trim($fullName)) ?: [];
         $base  = strtolower(($parts[0] ?? 'anggota') . '.' . ($parts[1] ?? ''));
@@ -76,7 +74,6 @@ class Member {
         return $candidate;
     }
 
-    /** Transaksi atomik: buat akun pengguna + profil anggota sekaligus */
     public static function createWithUser(array $d): int {
         $pdo = Database::getInstance();
         $pdo->beginTransaction();
@@ -130,7 +127,6 @@ class Member {
         }
     }
 
-    /** Statistik pendaftaran per bulan untuk grafik ApexCharts */
     public static function registrationsPerMonth(int $months = 6): array {
         $start = date('Y-m-01', strtotime('-' . ($months - 1) . ' months'));
         $stmt  = Database::getInstance()->prepare(
@@ -154,9 +150,6 @@ class Member {
         return ['labels' => $labels, 'totals' => $totals];
     }
 
-    /* ============================================================
-       METHOD UNTUK MODUL PROFIL (TAHAP 4.2)
-       ============================================================ */
     public static function updateProfile(int $userId, array $d): void {
         Database::getInstance()->prepare(
             'UPDATE members SET full_name = ?, phone = ?, address = ? WHERE user_id = ?'
@@ -168,14 +161,38 @@ class Member {
             ->execute([$photo, $userId]);
     }
 
-    /* ============================================================
-       METHOD UNTUK EKSPOR LAPORAN PDF (TAHAP 4.3)
-       ============================================================ */
     public static function allForExport(): array {
         return Database::getInstance()->query(
             'SELECT m.id, m.full_name, m.phone, m.join_date, u.username, u.email, u.status
              FROM members m JOIN users u ON u.id = m.user_id
              ORDER BY m.full_name ASC'
         )->fetchAll();
+    }
+
+    /* ============================================================
+       METHOD BARU: Anggota terbaru untuk feed aktivitas dashboard
+       ============================================================ */
+    public static function recent(int $limit = 3): array {
+        $stmt = Database::getInstance()->prepare(
+            'SELECT m.full_name, m.join_date, u.email
+             FROM members m
+             LEFT JOIN users u ON u.id = m.user_id
+             ORDER BY m.id DESC
+             LIMIT ' . (int) $limit
+        );
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
+    /* ============================================================
+       METHOD BARU: Jumlah anggota yang bergabung bulan ini
+       ============================================================ */
+    public static function countThisMonth(): int {
+        $stmt = Database::getInstance()->prepare(
+            "SELECT COUNT(*) FROM members
+             WHERE DATE_FORMAT(join_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')"
+        );
+        $stmt->execute();
+        return (int) $stmt->fetchColumn();
     }
 }

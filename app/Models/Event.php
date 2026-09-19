@@ -1,5 +1,5 @@
 <?php
-// File: app/Models/Event.php (FINAL - TAHAP 5.1)
+// File: app/Models/Event.php (FINAL - TAHAP 5.7)
 declare(strict_types=1);
 
 namespace Models;
@@ -7,12 +7,27 @@ namespace Models;
 use Core\Database;
 
 class Event {
-    /** Status otomatis berdasarkan tanggal */
     private static function decorate(array $row): array {
         $today = date('Y-m-d');
         $row['status'] = $row['event_date'] > $today ? 'upcoming'
             : ($row['event_date'] === $today ? 'ongoing' : 'done');
         return $row;
+    }
+
+    /** Daftar event untuk halaman publik: aktif dulu, lalu arsip */
+    public static function publicList(): array {
+        $rows = Database::getInstance()->query(
+            'SELECT e.*, u.username AS creator_name
+             FROM events e LEFT JOIN users u ON u.id = e.created_by
+             ORDER BY e.event_date DESC'
+        )->fetchAll();
+        $rows = array_map([self::class, 'decorate'], $rows);
+
+        $active = array_values(array_filter($rows, fn($r) => $r['status'] !== 'done'));
+        $done   = array_values(array_filter($rows, fn($r) => $r['status'] === 'done'));
+        usort($active, fn($a, $b) => strcmp($a['event_date'], $b['event_date']));
+
+        return ['active' => $active, 'done' => array_slice($done, 0, 6)];
     }
 
     public static function search(string $keyword = '', int $page = 1, int $perPage = 6): array {
@@ -61,7 +76,6 @@ class Event {
         return (int) $stmt->fetchColumn();
     }
 
-    /** Event mendatang untuk landing page publik */
     public static function upcoming(int $limit = 3): array {
         $stmt = Database::getInstance()->prepare(
             'SELECT e.*, u.username AS creator_name
@@ -72,6 +86,17 @@ class Event {
         );
         $stmt->execute([':today' => date('Y-m-d')]);
         return array_map([self::class, 'decorate'], $stmt->fetchAll());
+    }
+
+    public static function recent(int $limit = 3): array {
+        $stmt = Database::getInstance()->prepare(
+            'SELECT title, event_date, location
+             FROM events
+             ORDER BY id DESC
+             LIMIT ' . (int) $limit
+        );
+        $stmt->execute();
+        return $stmt->fetchAll();
     }
 
     public static function find(int $id): ?array {

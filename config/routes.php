@@ -1,11 +1,5 @@
 <?php
-/**
- * ================================================================
- *  DAFTAR RUTE APLIKASI (URL → Controller@Method)
- * ================================================================
- *  Format: $router->{method}('/url', 'NamaController@namaMethod');
- *  Parameter dinamis: $router->get('/member/{id}', 'MemberController@show');
- */
+// File: config/routes.php (FINAL - TAHAP 5.7)
 declare(strict_types=1);
 
 if (!defined('APP_EXEC')) {
@@ -13,11 +7,19 @@ if (!defined('APP_EXEC')) {
 }
 
 /* ----------------------------------------------------------------
- | RUTE PUBLIK — beranda & artikel untuk tamu
+ | RUTE PUBLIK — beranda, artikel, galeri, tentang, event untuk tamu
  | ---------------------------------------------------------------- */
 $router->get('/', 'HomeController@index');
 $router->get('/artikel', 'ArticleController@index');
 $router->get('/artikel/{id}', 'ArticleController@show');
+$router->get('/galeri', 'GalleryController@index');
+$router->get('/tentang', 'AboutController@index');
+$router->get('/event', 'EventController@publicIndex');
+
+/* ----------------------------------------------------------------
+ | RUTE PUBLIK — SEO & SITEMAP
+ | ---------------------------------------------------------------- */
+$router->get('/sitemap.xml', 'SitemapController@index');
 
 /* ----------------------------------------------------------------
  | RUTE AUTENTIKASI — login & logout
@@ -43,7 +45,7 @@ $router->post('/members/update/{id}', 'MemberController@update');
 $router->post('/members/delete/{id}', 'MemberController@destroy');
 
 /* ----------------------------------------------------------------
- | RUTE TERLINDUNG — MODUL EVENT
+ | RUTE TERLINDUNG — MODUL EVENT (ADMIN)
  | ---------------------------------------------------------------- */
 $router->get('/events', 'EventController@index');
 $router->get('/api/events', 'EventController@api');
@@ -68,13 +70,18 @@ $router->post('/articles/update/{id}', 'ArticleController@update');
 $router->post('/articles/delete/{id}', 'ArticleController@destroy');
 
 /* ----------------------------------------------------------------
- | RUTE PUBLIK — SENSUS ANGGOTA (Tahap 5.3)
+ | RUTE ADMIN — NOTIFIKASI
+ | ---------------------------------------------------------------- */
+$router->get('/api/notifications', 'NotificationController@feed');
+
+/* ----------------------------------------------------------------
+ | RUTE PUBLIK — SENSUS ANGGOTA
  | ---------------------------------------------------------------- */
 $router->get('/sensus', 'CensusController@form');
 $router->post('/sensus/store', 'CensusController@store');
 
 /* ----------------------------------------------------------------
- | RUTE ADMIN — KONTEN SITUS (Tahap 5.3)
+ | RUTE ADMIN — KONTEN SITUS
  | ---------------------------------------------------------------- */
 $router->get('/content', 'ContentController@manage');
 $router->get('/api/content/{type}', 'ContentController@api');
@@ -83,7 +90,7 @@ $router->post('/content/update/{id}', 'ContentController@update');
 $router->post('/content/delete/{id}', 'ContentController@destroy');
 
 /* ----------------------------------------------------------------
- | RUTE ADMIN — SENSUS (Tahap 5.3)
+ | RUTE ADMIN — SENSUS
  | ---------------------------------------------------------------- */
 $router->get('/census', 'CensusController@manage');
 $router->get('/api/census', 'CensusController@api');
@@ -91,8 +98,13 @@ $router->post('/census/approve/{id}', 'CensusController@approve');
 $router->post('/census/delete/{id}', 'CensusController@destroy');
 
 /* ----------------------------------------------------------------
- | RUTE ADMIN — PENGATURAN SITUS (Tahap 5.4)
+ | RUTE ADMIN — PENGATURAN SITUS
  | ---------------------------------------------------------------- */
 $router->get('/settings', 'SettingController@index');
 $router->post('/settings/save', 'SettingController@save');
 $router->post('/settings/remove-asset', 'SettingController@removeAsset');
+
+/* ----------------------------------------------------------------
+ | RUTE FALLBACK — 404
+ | ---------------------------------------------------------------- */
+$router->fallback('ErrorController@notFound');

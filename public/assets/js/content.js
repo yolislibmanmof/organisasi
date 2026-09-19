@@ -1,4 +1,4 @@
-// File: public/assets/js/content.js
+// File: public/assets/js/content.js (FINAL - TAHAP 5.6)
 (() => {
     'use strict';
     const BASE = document.body.dataset.base || '/';
@@ -8,16 +8,29 @@
     let currentData = [];
     let deleteId = null;
 
-    const grid    = document.getElementById('contentGrid');
-    const emptyEl = document.getElementById('emptyContent');
-    const infoEl  = document.getElementById('contentInfo');
-    const addBtn  = document.getElementById('btnAddContent');
-    const addLbl  = document.getElementById('btnAddLabel');
+    const grid     = document.getElementById('contentGrid');
+    const emptyEl  = document.getElementById('emptyContent');
+    const infoEl   = document.getElementById('contentInfo');
+    const addBtn   = document.getElementById('btnAddContent');
+    const addLbl   = document.getElementById('btnAddLabel');
     const delModal = document.getElementById('contentDeleteModal');
 
     const LABELS = { officers: 'Pengurus', testimonials: 'Testimoni', galleries: 'Foto Galeri' };
     const MODALS = { officers: 'officerModal', testimonials: 'testimonialModal', galleries: 'galleryModal' };
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const formatDate = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+
+    /** Ambil JSON dengan pengamanan penuh + log diagnostik */
+    async function fetchJSON(url, options) {
+        const res = await fetch(url, options);
+        const text = await res.text();
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            console.error('[CONTENT] Respons bukan JSON (' + url + '):', text.slice(0, 300));
+            throw new Error('Respons server tidak valid.');
+        }
+    }
 
     const openModal  = (id) => document.getElementById(id)?.classList.add('show');
     const closeModal = (m) => m.classList.remove('show');
@@ -39,10 +52,15 @@
 
     async function load() {
         grid.innerHTML = Array.from({ length: 4 }, () => '<div class="skel" style="height:190px;border-radius:16px"></div>').join('');
-        const res  = await fetch(api('api/content/' + type));
-        const json = await res.json();
-        currentData = json.data || [];
-        render();
+        try {
+            const json = await fetchJSON(api('api/content/' + type));
+            currentData = json.data || [];
+            render();
+        } catch (err) {
+            grid.innerHTML = '';
+            emptyEl.style.display = 'flex';
+            document.getElementById('emptyContentText').textContent = 'Gagal memuat data. Periksa konsol untuk detail.';
+        }
     }
 
     function render() {
@@ -62,7 +80,10 @@
                 title = item.name; sub = (item.role || 'Alumni');
             } else {
                 thumb = `<img src="${BASE}assets/uploads/galleries/${esc(item.image)}" alt="">`;
-                title = item.title; sub = 'Foto kegiatan';
+                title = item.title;
+                const meta = [item.event_date ? formatDate(item.event_date) : '', item.location || '']
+                    .filter(Boolean).join(' · ');
+                sub = meta || 'Foto kegiatan';
             }
             return `
             <article class="content-card">
@@ -103,6 +124,7 @@
                 document.getElementById('oName').value = item.full_name;
                 document.getElementById('oPosition').value = item.position;
                 document.getElementById('oOrder').value = item.sort_order || 0;
+                document.getElementById('oBio').value = item.bio || '';
                 document.getElementById('officerModalTitle').textContent = 'Sunting Pengurus';
             } else if (type === 'testimonials') {
                 document.getElementById('tId').value = item.id;
@@ -113,6 +135,8 @@
             } else {
                 document.getElementById('gId').value = item.id;
                 document.getElementById('gTitle').value = item.title;
+                document.getElementById('gDate').value = item.event_date || '';
+                document.getElementById('gLocation').value = item.location || '';
                 document.getElementById('galleryModalTitle').textContent = 'Sunting Foto Galeri';
             }
             openModal(MODALS[type]);
@@ -137,22 +161,26 @@
             btn.classList.add('is-loading');
             form.querySelectorAll('.field-error').forEach(el => el.textContent = '');
 
-            const res  = await fetch(url, { method: 'POST', body: new FormData(form) });
-            const json = await res.json();
-            btn.classList.remove('is-loading');
+            try {
+                const json = await fetchJSON(url, { method: 'POST', body: new FormData(form) });
+                btn.classList.remove('is-loading');
 
-            if (json.ok) {
-                closeModal(form.closest('.modal-backdrop'));
-                toast(json.message, 'success');
-                load();
-            } else if (json.errors) {
-                Object.entries(json.errors).forEach(([k, v]) => {
-                    const err = form.querySelector('[data-error="' + k + '"]');
-                    if (err) err.textContent = v;
-                });
-                toast('Periksa kembali isian Anda.', 'error');
-            } else {
-                toast(json.message || 'Gagal menyimpan.', 'error');
+                if (json.ok) {
+                    closeModal(form.closest('.modal-backdrop'));
+                    toast(json.message, 'success');
+                    load();
+                } else if (json.errors) {
+                    Object.entries(json.errors).forEach(([k, v]) => {
+                        const err = form.querySelector('[data-error="' + k + '"]');
+                        if (err) err.textContent = v;
+                    });
+                    toast('Periksa kembali isian Anda.', 'error');
+                } else {
+                    toast(json.message || 'Gagal menyimpan.', 'error');
+                }
+            } catch (err) {
+                btn.classList.remove('is-loading');
+                toast(err.message || 'Koneksi ke server gagal.', 'error');
             }
         });
     };
@@ -168,12 +196,16 @@
         fd.append('type', type);
         const btn = document.getElementById('btnConfirmContentDelete');
         btn.classList.add('is-loading');
-        const res  = await fetch(api('content/delete/' + deleteId), { method: 'POST', body: fd });
-        const json = await res.json();
-        btn.classList.remove('is-loading');
-        closeModal(delModal);
-        toast(json.message, json.ok ? 'success' : 'error');
-        if (json.ok) load();
+        try {
+            const json = await fetchJSON(api('content/delete/' + deleteId), { method: 'POST', body: fd });
+            btn.classList.remove('is-loading');
+            closeModal(delModal);
+            toast(json.message, json.ok ? 'success' : 'error');
+            if (json.ok) load();
+        } catch (err) {
+            btn.classList.remove('is-loading');
+            toast(err.message || 'Koneksi ke server gagal.', 'error');
+        }
         deleteId = null;
     });
 

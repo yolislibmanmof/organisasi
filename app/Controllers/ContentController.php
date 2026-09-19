@@ -1,5 +1,5 @@
 <?php
-// File: app/Controllers/ContentController.php
+// File: app/Controllers/ContentController.php (FINAL - TAHAP 5.6)
 declare(strict_types=1);
 
 namespace Controllers;
@@ -70,7 +70,7 @@ class ContentController {
             }
             json(['ok' => true, 'message' => 'Konten berhasil disimpan.']);
         } catch (\Throwable $e) {
-            json(['ok' => false, 'message' => 'Gagal menyimpan konten.'], 500);
+            json(['ok' => false, 'message' => 'Gagal menyimpan konten: ' . $e->getMessage()], 500);
         }
     }
 
@@ -112,7 +112,7 @@ class ContentController {
             }
             json(['ok' => true, 'message' => 'Perubahan konten telah disimpan.']);
         } catch (\Throwable $e) {
-            json(['ok' => false, 'message' => 'Gagal menyimpan perubahan.'], 500);
+            json(['ok' => false, 'message' => 'Gagal menyimpan perubahan: ' . $e->getMessage()], 500);
         }
     }
 
@@ -147,14 +147,19 @@ class ContentController {
         if (mb_strlen($name) < 3) $errors['full_name'] = 'Nama minimal 3 karakter.';
         if ($pos === '')          $errors['position']  = 'Jabatan wajib diisi.';
         return $errors !== [] ? ['errors' => $errors]
-            : ['full_name' => $name, 'position' => $pos, 'sort_order' => (int) ($_POST['sort_order'] ?? 0)];
+            : [
+                'full_name'  => $name,
+                'position'   => $pos,
+                'sort_order' => (int) ($_POST['sort_order'] ?? 0),
+                'bio'        => trim((string) ($_POST['bio'] ?? '')),
+            ];
     }
 
     private function validateTestimonial(): array {
         $errors = [];
         $name   = trim((string) ($_POST['name'] ?? ''));
         $quote  = trim((string) ($_POST['quote'] ?? ''));
-        if (mb_strlen($name) < 3)  $errors['name']  = 'Nama minimal 3 karakter.';
+        if (mb_strlen($name) < 3)   $errors['name']  = 'Nama minimal 3 karakter.';
         if (mb_strlen($quote) < 10) $errors['quote'] = 'Testimoni minimal 10 karakter.';
         return $errors !== [] ? ['errors' => $errors]
             : ['name' => $name, 'role' => trim((string) ($_POST['role'] ?? '')), 'quote' => $quote];
@@ -163,18 +168,25 @@ class ContentController {
     private function validateGallery(bool $allowEmpty = false): array {
         $title = trim((string) ($_POST['title'] ?? ''));
         if ($title === '') return ['errors' => ['title' => 'Judul foto wajib diisi.']];
-        return ['title' => $title];
+        return [
+            'title'      => $title,
+            'event_date' => trim((string) ($_POST['event_date'] ?? '')),
+            'location'   => trim((string) ($_POST['location'] ?? '')),
+        ];
     }
 
-    /* ---------- Unggah berkas ---------- */
+    /* ---------- Unggah berkas (batas 10 MB) ---------- */
     private function upload(?array $file, string $folder, bool $required = false): array {
         if ($file === null || ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
             return $required ? ['error' => 'Berkas wajib diunggah.'] : [];
         }
-        if ($file['error'] !== UPLOAD_ERR_OK)        return ['error' => 'Gagal mengunggah berkas.'];
-        if ($file['size'] > 2 * 1024 * 1024)         return ['error' => 'Ukuran maksimal 2 MB.'];
+        if ($file['error'] === UPLOAD_ERR_INI_SIZE || $file['error'] === UPLOAD_ERR_FORM_SIZE) {
+            return ['error' => 'Berkas melebihi batas unggah server. Periksa php.ini (upload_max_filesize & post_max_size).'];
+        }
+        if ($file['error'] !== UPLOAD_ERR_OK) return ['error' => 'Gagal mengunggah berkas.'];
+        if ($file['size'] > 10 * 1024 * 1024) return ['error' => 'Ukuran maksimal 10 MB.'];
         $info = @getimagesize($file['tmp_name']);
-        if ($info === false)                          return ['error' => 'Berkas harus berupa gambar.'];
+        if ($info === false) return ['error' => 'Berkas harus berupa gambar.'];
         $allowed = ['image/jpeg', 'image/png', 'image/webp'];
         if (!in_array($info['mime'], $allowed, true)) return ['error' => 'Format didukung: JPG, PNG, WEBP.'];
 

@@ -1,4 +1,4 @@
-<!-- File: views/pages/census.php -->
+<!-- File: views/pages/census.php (FINAL - TAHAP 5.7) -->
 <section class="page-head">
     <div class="page-head-info">
         <div class="page-eyebrow">Verifikasi</div>
@@ -19,12 +19,13 @@
         <table class="data-table">
             <thead>
                 <tr>
-                    <th style="width:22%">Nama</th>
-                    <th style="width:24%">Kontak</th>
-                    <th style="width:14%">Status</th>
-                    <th style="width:10%">Angkatan</th>
+                    <th style="width:20%">Nama</th>
+                    <th style="width:12%">Keperluan</th>
+                    <th style="width:22%">Kontak</th>
+                    <th style="width:10%">Status</th>
+                    <th style="width:8%">Angkatan</th>
                     <th style="width:14%">Waktu</th>
-                    <th style="width:16%; text-align:right">Aksi</th>
+                    <th style="width:14%; text-align:right">Aksi</th>
                 </tr>
             </thead>
             <tbody id="censusRows"></tbody>
@@ -38,4 +39,5 @@
 </section>
 
 <div class="toast-zone" id="toastZone"></div>
+<script>window.CSRF_TOKEN = '<?= e(csrf_token()) ?>';</script>
 <script src="<?= asset('js/census.js') ?>"></script>

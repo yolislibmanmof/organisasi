@@ -1,5 +1,5 @@
 <?php
-// File: app/Models/Article.php
+// File: app/Models/Article.php (FINAL - TAHAP 5.5)
 declare(strict_types=1);
 
 namespace Models;
@@ -9,7 +9,6 @@ use Core\Database;
 class Article {
     public const CATEGORIES = ['Artikel', 'Berita', 'Edukasi', 'Podcast', 'Hari Besar'];
 
-    /* ---------- SISI PUBLIK ---------- */
     public static function published(string $category = '', int $page = 1, int $perPage = 6): array {
         $offset = ($page - 1) * $perPage;
         $sql    = 'SELECT a.*, u.username AS author_name FROM articles a LEFT JOIN users u ON u.id = a.created_by';
@@ -54,7 +53,6 @@ class Article {
         return $stmt->fetchAll();
     }
 
-    /* ---------- SISI ADMIN ---------- */
     public static function search(string $q = '', int $page = 1, int $perPage = 8): array {
         $like   = '%' . $q . '%';
         $offset = ($page - 1) * $perPage;
@@ -94,5 +92,12 @@ class Article {
 
     public static function delete(int $id): void {
         Database::getInstance()->prepare('DELETE FROM articles WHERE id = ?')->execute([$id]);
+    }
+
+    /* ============================================================
+       METHOD BARU: Alias konsisten untuk feed dashboard
+       ============================================================ */
+    public static function recent(int $limit = 3): array {
+        return self::latest($limit);
     }
 }

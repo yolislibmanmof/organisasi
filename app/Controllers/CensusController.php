@@ -1,5 +1,5 @@
 <?php
-// File: app/Controllers/CensusController.php
+// File: app/Controllers/CensusController.php (FINAL - TAHAP 5.7)
 declare(strict_types=1);
 
 namespace Controllers;
@@ -28,13 +28,15 @@ class CensusController {
             redirect('sensus');
         }
 
-        $name   = trim((string) ($_POST['full_name'] ?? ''));
-        $email  = trim((string) ($_POST['email'] ?? ''));
-        $phone  = trim((string) ($_POST['phone'] ?? ''));
-        $addr   = trim((string) ($_POST['address'] ?? ''));
-        $status = (string) ($_POST['status'] ?? 'pelajar');
-        $year   = trim((string) ($_POST['graduation_year'] ?? ''));
-        $msg    = trim((string) ($_POST['message'] ?? ''));
+        $name    = trim((string) ($_POST['full_name'] ?? ''));
+        $email   = trim((string) ($_POST['email'] ?? ''));
+        $phone   = trim((string) ($_POST['phone'] ?? ''));
+        $addr    = trim((string) ($_POST['address'] ?? ''));
+        $status  = (string) ($_POST['status'] ?? 'pelajar');
+        $year    = trim((string) ($_POST['graduation_year'] ?? ''));
+        $msg     = trim((string) ($_POST['message'] ?? ''));
+        $purpose = in_array($_POST['purpose'] ?? '', ['pendaftaran', 'sensus'], true)
+                   ? $_POST['purpose'] : 'sensus';
 
         if (mb_strlen($name) < 3) {
             Session::flash('sensus_err', 'Nama lengkap minimal 3 karakter.');
@@ -56,8 +58,13 @@ class CensusController {
         Census::store([
             'full_name' => $name, 'email' => $email, 'phone' => $phone, 'address' => $addr,
             'status' => $status, 'graduation_year' => $year, 'message' => $msg,
+            'purpose' => $purpose,
         ]);
-        Session::flash('sensus_ok', 'Terima kasih! Data sensus Anda telah tercatat dan menunggu verifikasi pengurus.');
+
+        $msgOk = $purpose === 'pendaftaran'
+            ? 'Terima kasih! Pendaftaran Anda telah tercatat. Akun akan dibuat setelah verifikasi pengurus.'
+            : 'Terima kasih! Data sensus Anda telah tercatat untuk rekap alumni.';
+        Session::flash('sensus_ok', $msgOk);
         redirect('sensus');
     }
 
@@ -77,7 +84,6 @@ class CensusController {
         json(['data' => Census::all(), 'meta' => ['new' => Census::countNew()]]);
     }
 
-    /** Setujui entri sensus menjadi akun anggota aktif */
     public function approve(string $id): void {
         Auth::handle();
         AdminOnly::handle();
@@ -86,6 +92,13 @@ class CensusController {
         $row = Census::find((int) $id);
         if ($row === null) json(['ok' => false, 'message' => 'Data sensus tidak ditemukan.'], 404);
         if ((int) $row['processed'] === 1) json(['ok' => false, 'message' => 'Entri ini sudah diproses sebelumnya.'], 422);
+
+        // Hanya entri 'pendaftaran' yang dibuatkan akun
+        if (($row['purpose'] ?? 'sensus') !== 'pendaftaran') {
+            Census::markProcessed((int) $id);
+            json(['ok' => true, 'message' => 'Entri sensus rekap ditandai sebagai telah diproses.']);
+            return;
+        }
 
         try {
             Member::createWithUser([

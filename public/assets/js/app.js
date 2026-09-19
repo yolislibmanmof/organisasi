@@ -1,6 +1,7 @@
-// File: public/assets/js/app.js (FINAL - TERINTEGRASI TAHAP 4)
+// File: public/assets/js/app.js (FINAL - TAHAP 5.7)
 (() => {
     'use strict';
+    const BASE = document.body.dataset.base || '/';
 
     /* ---------- 1. Toggle kata sandi ---------- */
     document.querySelectorAll('[data-toggle]').forEach(btn => {
@@ -31,15 +32,14 @@
     });
 
     /* ---------- 3. Sidebar collapsible ---------- */
-    const sidebar  = document.getElementById('sidebar');
+    const sidebar = document.getElementById('sidebar');
     const btnCollapse = document.getElementById('btnCollapse');
-    const btnMobile   = document.getElementById('btnMobileMenu');
-    const overlay     = document.getElementById('sidebarOverlay');
+    const btnMobile = document.getElementById('btnMobileMenu');
+    const overlay = document.getElementById('sidebarOverlay');
 
     const applyCollapse = (collapsed) => {
         if (!sidebar) return;
-        if (collapsed) sidebar.classList.add('collapsed');
-        else sidebar.classList.remove('collapsed');
+        sidebar.classList.toggle('collapsed', collapsed);
         try { localStorage.setItem('sidebar_collapsed', collapsed ? '1' : '0'); } catch (e) {}
     };
     try {
@@ -57,15 +57,13 @@
         overlay?.classList.remove('show');
     });
 
-    /* ---------- 5. Count-up animasi global untuk dashboard ---------- */
+    /* ---------- 5. Count-up animasi global ---------- */
     const animateNum = (el, target) => {
-        const start = 0;
-        const dur = 1200;
-        const t0 = performance.now();
+        const dur = 1200, t0 = performance.now();
         const tick = (t) => {
             const p = Math.min(1, (t - t0) / dur);
             const eased = 1 - Math.pow(1 - p, 3);
-            el.textContent = Math.floor(start + (target - start) * eased).toLocaleString('id-ID');
+            el.textContent = Math.floor(target * eased).toLocaleString('id-ID');
             if (p < 1) requestAnimationFrame(tick);
             else el.textContent = target.toLocaleString('id-ID');
         };
@@ -82,7 +80,7 @@
     }, { threshold: 0.3 });
     document.querySelectorAll('.stat-num[data-count]').forEach(el => observer.observe(el));
 
-    /* ---------- 6. Pencarian global cepat (⌘K / Ctrl+K) ---------- */
+    /* ---------- 6. Pencarian global (⌘K / Ctrl+K) ---------- */
     const globalSearch = document.getElementById('globalSearch');
     document.addEventListener('keydown', (e) => {
         if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -93,10 +91,7 @@
     globalSearch?.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             const q = globalSearch.value.trim();
-            if (q) {
-                const base = document.body.dataset.base || '/';
-                window.location.href = base + 'members?q=' + encodeURIComponent(q);
-            }
+            if (q) window.location.href = BASE + 'members?q=' + encodeURIComponent(q);
         }
     });
 
@@ -108,7 +103,7 @@
         }, 4000);
     });
 
-    /* ---------- 8. Loading indicator saat form login dikirim ---------- */
+    /* ---------- 8. Loading indicator login ---------- */
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
         loginForm.addEventListener('submit', () => {
@@ -117,12 +112,12 @@
         });
     }
 
-    /* ---------- 9. Fade-in untuk konten halaman ---------- */
+    /* ---------- 9. Fade-in konten halaman ---------- */
     document.querySelectorAll('.app-content > section, .app-content > .page-head').forEach((el, i) => {
         el.style.animation = `fade-up .55s ${i * 80}ms both cubic-bezier(.22,1,.36,1)`;
     });
 
-    /* ---------- 10. Toast Global (dipakai modul Event & halaman lain) ---------- */
+    /* ---------- 10. Toast Global ---------- */
     window.toast = (msg, type = 'success') => {
         const zone = document.getElementById('toastZone');
         if (!zone) return;
@@ -139,4 +134,60 @@
         el.querySelector('.toast-close').addEventListener('click', close);
         setTimeout(close, 4500);
     };
+
+    /* ---------- 11. DROPDOWN NOTIFIKASI (admin only) ---------- */
+    const notifBtn = document.getElementById('dxNotifBtn');
+    const notifDrop = document.getElementById('dxNotifDropdown');
+    const notifList = document.getElementById('dxNotifList');
+    const notifDot = document.getElementById('dxNotifDot');
+    const notifCount = document.getElementById('dxNotifCount');
+
+    if (notifBtn && notifDrop) {
+        notifBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            notifDrop.classList.toggle('show');
+            if (notifDrop.classList.contains('show')) loadNotif();
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!notifDrop.contains(e.target) && e.target !== notifBtn) {
+                notifDrop.classList.remove('show');
+            }
+        });
+
+        const loadNotif = async () => {
+            try {
+                const res = await fetch(BASE + 'api/notifications');
+                const json = await res.json();
+                const items = json.items || [];
+                const unread = json.unread || 0;
+
+                notifDot.style.display = unread > 0 ? 'block' : 'none';
+                notifCount.textContent = items.length + ' notifikasi';
+
+                if (items.length === 0) {
+                    notifList.innerHTML = '<li class="dx-notif-empty"><i class="ph ph-bell-slash"></i>Tidak ada notifikasi baru</li>';
+                    return;
+                }
+
+                notifList.innerHTML = items.map(it => `
+                    <a class="dx-notif-item" href="${BASE}${it.link}">
+                        <span class="dx-notif-icon ${it.grad}"><i class="ph ${it.icon}"></i></span>
+                        <div class="dx-notif-body">
+                            <strong>${it.title}</strong>
+                            <span>${it.sub}</span>
+                        </div>
+                        <span class="dx-notif-time">${it.time}</span>
+                    </a>
+                `).join('');
+            } catch (err) {
+                notifList.innerHTML = '<li class="dx-notif-empty"><i class="ph ph-warning-circle"></i>Gagal memuat</li>';
+            }
+        };
+
+        // Auto-refresh setiap 60 detik
+        setInterval(() => {
+            if (notifDrop.classList.contains('show')) loadNotif();
+        }, 60000);
+    }
 })();

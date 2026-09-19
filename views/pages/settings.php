@@ -1,4 +1,4 @@
-<!-- File: views/pages/settings.php -->
+<!-- File: views/pages/settings.php (FINAL - TAHAP 5.6) -->
 <section class="page-head">
     <div class="page-head-info">
         <div class="page-eyebrow">Konfigurasi</div>
@@ -51,7 +51,7 @@
                             </button>
                         <?php endif; ?>
                     </div>
-                    <small class="asset-hint">PNG/JPG/WEBP, maks 1 MB. Kosongkan untuk logo default.</small>
+                    <small class="asset-hint">PNG/JPG/WEBP, maks 10 MB. Kosongkan untuk logo default.</small>
                 </div>
 
                 <div class="asset-field">
@@ -74,22 +74,27 @@
                             </button>
                         <?php endif; ?>
                     </div>
-                    <small class="asset-hint">PNG/ICO, maks 1 MB. Disarankan persegi.</small>
+                    <small class="asset-hint">PNG/ICO, maks 10 MB. Disarankan persegi.</small>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- VISI & MISI -->
+    <!-- VISI & MISI + PERIODE KABINET + SEMBOYAN -->
     <section class="glass-card settings-card">
         <div class="settings-head">
             <span class="settings-num">02</span>
             <div>
-                <h3>Visi & Misi</h3>
+                <h3>Visi, Misi & Identitas Kabinet</h3>
                 <p>Tampil pada seksi "Tentang Kami" di beranda publik.</p>
             </div>
         </div>
         <div class="settings-body">
+            <label class="field">
+                <span class="field-label">Periode Kabinet</span>
+                <input type="text" name="cabinet_period" value="<?= e($settings['cabinet_period'] ?? '') ?>" placeholder="Contoh: Kabinet Askara Periode 2024-2025">
+                <small class="asset-hint">Tampil sebagai judul seksi visi-misi di beranda.</small>
+            </label>
             <label class="field">
                 <span class="field-label">Visi</span>
                 <textarea name="visi" rows="3" placeholder="Pernyataan visi organisasi…"><?= e($settings['visi'] ?? '') ?></textarea>
@@ -98,6 +103,11 @@
                 <span class="field-label">Misi</span>
                 <textarea name="misi" rows="6" placeholder="Satu misi per baris…"><?= e($settings['misi'] ?? '') ?></textarea>
                 <small class="asset-hint">Tulis setiap misi pada baris terpisah.</small>
+            </label>
+            <label class="field">
+                <span class="field-label">Semboyan Organisasi</span>
+                <input type="text" name="motto" value="<?= e($settings['motto'] ?? '') ?>" placeholder="Contoh: Ngabdi Ka Nagri Bela Ka Nagara">
+                <small class="asset-hint">Tampil sebagai kutipan inspiratif di bawah visi-misi.</small>
             </label>
         </div>
     </section>

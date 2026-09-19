@@ -1,9 +1,11 @@
-<!-- File: views/pages/landing.php (FINAL - TAHAP 5.4) -->
+<!-- File: views/pages/landing.php (FINAL - TAHAP 5.6) -->
 <?php
     $appName = setting('app_name', 'Organisasi');
     $visi    = trim((string) setting('visi'));
     $misiRaw = (string) setting('misi');
     $misiList = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', $misiRaw))));
+    $motto   = trim((string) setting('motto'));
+    $period  = trim((string) setting('cabinet_period'));
 ?>
 
 <!-- ============ HERO ============ -->
@@ -20,8 +22,8 @@
                 <a href="<?= url('login') ?>" class="btn btn-primary">
                     <i class="ph ph-rocket-launch"></i><span class="btn-text">Masuk Sistem Anggota</span>
                 </a>
-                <a href="#event" class="btn btn-ghost" data-scroll>
-                    <i class="ph ph-calendar-blank"></i><span class="btn-text">Lihat Kegiatan</span>
+                <a href="<?= url('event') ?>" class="btn btn-ghost">
+                    <i class="ph ph-calendar-blank"></i><span class="btn-text">Lihat Semua Kegiatan</span>
                 </a>
             </div>
             <div class="hero-mini">
@@ -75,12 +77,16 @@
     </div>
 </section>
 
-<!-- ============ VISI & MISI (DARI SETTING) ============ -->
+<!-- ============ VISI & MISI + PERIODE KABINET + SEMBOYAN ============ -->
 <?php if ($visi !== '' || !empty($misiList)): ?>
 <section class="pub-section" id="tentang">
     <div class="section-head reveal">
         <span class="page-eyebrow">Tentang Kami</span>
-        <h2>Visi & Misi</h2>
+        <?php if ($period !== ''): ?>
+            <h2><?= e($period) ?></h2>
+        <?php else: ?>
+            <h2>Visi & Misi</h2>
+        <?php endif; ?>
         <p>Fondasi yang menuntun setiap langkah dan program organisasi.</p>
     </div>
     <div class="about-grid">
@@ -104,6 +110,12 @@
         </article>
         <?php endif; ?>
     </div>
+    <?php if ($motto !== ''): ?>
+    <div class="motto-band reveal">
+        <i class="ph ph-quotes"></i>
+        <p><?= e($motto) ?></p>
+    </div>
+    <?php endif; ?>
 </section>
 <?php endif; ?>
 
@@ -213,7 +225,7 @@
     <?php endif; ?>
 </section>
 
-<!-- ============ STRUKTUR KEPENGURUSAN ============ -->
+<!-- ============ STRUKTUR KEPENGURUSAN (DENGAN TOMBOL PROFIL) ============ -->
 <?php if (!empty($officers)): ?>
 <section class="pub-section" id="pengurus">
     <div class="section-head reveal">
@@ -234,6 +246,16 @@
             </div>
             <h3><?= e($o['full_name']) ?></h3>
             <span class="officer-position"><?= e($o['position']) ?></span>
+            <?php if (!empty($o['bio'])): ?>
+            <button class="btn btn-ghost btn-xs officer-profile-btn"
+                    data-name="<?= e($o['full_name']) ?>"
+                    data-position="<?= e($o['position']) ?>"
+                    data-photo="<?= !empty($o['photo']) ? e(url('assets/uploads/officers/' . $o['photo'])) : '' ?>"
+                    data-initial="<?= e(strtoupper(substr($o['full_name'], 0, 1))) ?>"
+                    data-bio="<?= e($o['bio']) ?>">
+                <i class="ph ph-user-circle"></i><span class="btn-text">Lihat Profile</span>
+            </button>
+            <?php endif; ?>
         </article>
         <?php endforeach; ?>
     </div>
@@ -265,7 +287,7 @@
 </section>
 <?php endif; ?>
 
-<!-- ============ GALERI KEGIATAN (MASONRY + LIGHTBOX) ============ -->
+<!-- ============ GALERI KEGIATAN + TOMBOL LIHAT SEMUA ============ -->
 <?php if (!empty($galleries)): ?>
 <section class="pub-section" id="galeri">
     <div class="section-head reveal">
@@ -283,8 +305,29 @@
         </figure>
         <?php endforeach; ?>
     </div>
+    <?php if (($totalGalleries ?? 0) > 9): ?>
+    <div class="pub-more">
+        <a href="<?= url('galeri') ?>" class="btn btn-ghost">
+            <span class="btn-text">Lihat Semua Galeri</span><i class="ph ph-arrow-right"></i>
+        </a>
+    </div>
+    <?php endif; ?>
 </section>
 <?php endif; ?>
+
+<!-- ============ KENAPA BERGABUNG? ============ -->
+<section class="pub-section">
+    <div class="join-strip glass-card reveal">
+        <div class="join-copy">
+            <span class="page-eyebrow">Bergabunglah</span>
+            <h2>Kenapa harus masuk organisasi?</h2>
+            <p>Bergabung dengan kami — lebih dari ribuan alumni mahasiswa dan pelajar yang telah berkontribusi nyata di daerahnya. Jaringan, pengalaman, dan ilmu yang Anda dapatkan akan menjadi bekal karier seumur hidup.</p>
+        </div>
+        <a href="<?= url('sensus') ?>" class="btn btn-primary btn-lg">
+            <i class="ph ph-rocket-launch"></i><span class="btn-text">Daftar Sekarang</span>
+        </a>
+    </div>
+</section>
 
 <!-- ============ BANNER SENSUS ============ -->
 <section class="pub-section">
@@ -315,3 +358,163 @@
         </div>
     </div>
 </section>
+
+<!-- ============ MODAL PROFIL PENGURUS ============ -->
+<div class="officer-lightbox" id="officerLightbox">
+    <button class="lightbox-close" id="officerLightboxClose"><i class="ph ph-x"></i></button>
+    <div class="officer-profile-card">
+        <div class="officer-profile-photo" id="officerProfilePhoto"></div>
+        <h2 id="officerProfileName"></h2>
+        <span class="officer-position" id="officerProfilePosition"></span>
+        <p id="officerProfileBio"></p>
+    </div>
+</div>
+
+<!-- ============ GAYA INTERNAL TAHAP 5.6 ============ -->
+<style>
+    .motto-band {
+        margin-top: 36px;
+        padding: 28px 36px;
+        border-radius: var(--rad-lg);
+        background: linear-gradient(135deg, rgba(99,102,241,.12), rgba(34,211,238,.08));
+        border: 1px solid rgba(99,102,241,.25);
+        display: flex;
+        align-items: flex-start;
+        gap: 18px;
+        text-align: left;
+    }
+    .motto-band i { font-size: 32px; color: var(--acc); flex-shrink: 0; margin-top: 4px; }
+    .motto-band p { font-size: 16px; font-weight: 600; line-height: 1.7; color: var(--txt-0); font-style: italic; margin: 0; }
+
+    .officer-profile-btn {
+        margin-top: 12px;
+        padding: 8px 16px;
+        font-size: 11.5px;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .join-strip {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 40px;
+        padding: 44px;
+        position: relative;
+        overflow: hidden;
+        background:
+            radial-gradient(600px 260px at 92% -30%, rgba(34,211,238,.18), transparent 60%),
+            radial-gradient(520px 240px at 8% 140%, rgba(139,92,246,.22), transparent 60%),
+            var(--glass);
+    }
+    .join-copy { flex: 1; }
+    .join-copy h2 {
+        font-size: clamp(22px, 3vw, 32px);
+        font-weight: 800;
+        letter-spacing: -.6px;
+        margin: 8px 0 12px;
+        background: linear-gradient(135deg, #fff, #c7d2fe);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .join-copy p {
+        color: var(--txt-1);
+        font-size: 14.5px;
+        line-height: 1.7;
+        max-width: 60ch;
+    }
+
+    .officer-lightbox {
+        position: fixed;
+        inset: 0;
+        z-index: 130;
+        background: rgba(4,8,20,.92);
+        backdrop-filter: blur(14px);
+        display: grid;
+        place-items: center;
+        padding: 40px;
+        opacity: 0;
+        visibility: hidden;
+        transition: .3s;
+    }
+    .officer-lightbox.show { opacity: 1; visibility: visible; }
+    .officer-profile-card {
+        max-width: 480px;
+        width: 100%;
+        padding: 40px 36px;
+        border-radius: var(--rad-lg);
+        background: var(--glass);
+        border: 1px solid var(--glass-brd);
+        backdrop-filter: blur(24px);
+        text-align: center;
+        position: relative;
+        animation: fade-up .4s both;
+    }
+    .officer-profile-photo {
+        width: 120px;
+        height: 120px;
+        border-radius: 32px;
+        margin: 0 auto 18px;
+        background: linear-gradient(135deg, var(--pri), var(--acc));
+        display: grid;
+        place-items: center;
+        font-size: 42px;
+        font-weight: 800;
+        color: #fff;
+        overflow: hidden;
+        border: 3px solid rgba(255,255,255,.1);
+        box-shadow: 0 20px 50px rgba(99,102,241,.4);
+    }
+    .officer-profile-photo img { width: 100%; height: 100%; object-fit: cover; }
+    .officer-profile-card h2 { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+    .officer-profile-card p {
+        margin-top: 18px;
+        color: var(--txt-1);
+        font-size: 13.5px;
+        line-height: 1.7;
+        text-align: left;
+        padding-top: 18px;
+        border-top: 1px solid var(--glass-brd);
+    }
+
+    @media (max-width: 720px) {
+        .join-strip { flex-direction: column; align-items: flex-start; padding: 28px; }
+        .motto-band { padding: 22px; }
+        .motto-band p { font-size: 14px; }
+    }
+</style>
+
+<script>
+(function(){
+    const lb = document.getElementById('officerLightbox');
+    const lbClose = document.getElementById('officerLightboxClose');
+    const lbPhoto = document.getElementById('officerProfilePhoto');
+    const lbName = document.getElementById('officerProfileName');
+    const lbPos = document.getElementById('officerProfilePosition');
+    const lbBio = document.getElementById('officerProfileBio');
+
+    if (!lb) return;
+
+    document.querySelectorAll('.officer-profile-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const photo = btn.dataset.photo;
+            const initial = btn.dataset.initial;
+            lbPhoto.innerHTML = photo ? '<img src="' + photo + '" alt="">' : initial;
+            lbName.textContent = btn.dataset.name;
+            lbPos.textContent = btn.dataset.position;
+            lbBio.textContent = btn.dataset.bio;
+            lb.classList.add('show');
+            document.body.style.overflow = 'hidden';
+        });
+    });
+
+    const closeLB = () => {
+        lb.classList.remove('show');
+        document.body.style.overflow = '';
+    };
+    lbClose?.addEventListener('click', closeLB);
+    lb?.addEventListener('click', (e) => { if (e.target === lb) closeLB(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && lb.classList.contains('show')) closeLB(); });
+})();
+</script>

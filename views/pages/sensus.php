@@ -1,8 +1,8 @@
-<!-- File: views/pages/sensus.php -->
+<!-- File: views/pages/sensus.php (FINAL - TAHAP 5.7) -->
 <section class="pub-page-head">
-    <span class="page-eyebrow">Sensus Anggota</span>
-    <h1>Digitalisasi Database Anggota</h1>
-    <p>Lengkapi formulir berikut agar Anda tercatat dalam sistem keanggotaan terpadu. Data akan diverifikasi oleh pengurus.</p>
+    <span class="page-eyebrow">Formulir Anggota</span>
+    <h1>Bergabung atau Terdata</h1>
+    <p>Pilih keperluan Anda: pendaftaran anggota baru atau sensus rekap alumni.</p>
 </section>
 
 <div class="sensus-wrap">
@@ -18,6 +18,25 @@
 
         <form method="post" action="<?= url('sensus/store') ?>">
             <?= csrf_field() ?>
+
+            <label class="field">
+                <span class="field-label">Keperluan <em>*</em></span>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <label class="check-field" style="flex:1;min-width:180px;padding:12px 14px;border:1px solid var(--glass-brd);border-radius:10px;background:rgba(255,255,255,.02);">
+                        <input type="radio" name="purpose" value="pendaftaran" checked>
+                        <span class="check-mark"></span>
+                        <span><strong style="display:block;font-size:12.5px;">Pendaftaran Anggota Baru</strong>
+                              <small style="color:var(--txt-1);font-size:11px;">Saya ingin menjadi anggota aktif</small></span>
+                    </label>
+                    <label class="check-field" style="flex:1;min-width:180px;padding:12px 14px;border:1px solid var(--glass-brd);border-radius:10px;background:rgba(255,255,255,.02);">
+                        <input type="radio" name="purpose" value="sensus">
+                        <span class="check-mark"></span>
+                        <span><strong style="display:block;font-size:12.5px;">Sensus Rekap Alumni</strong>
+                              <small style="color:var(--txt-1);font-size:11px;">Saya hanya terdata sebagai alumni</small></span>
+                    </label>
+                </div>
+            </label>
+
             <label class="field"><span class="field-label">Nama Lengkap <em>*</em></span>
                 <input type="text" name="full_name" required placeholder="Nama lengkap Anda"></label>
             <div class="field-row">
@@ -41,7 +60,7 @@
             <label class="field"><span class="field-label">Pesan (opsional)</span>
                 <textarea name="message" rows="3" placeholder="Saran, kesan, atau informasi tambahan…"></textarea></label>
             <button type="submit" class="btn btn-primary btn-block">
-                <i class="ph ph-paper-plane-tilt"></i><span class="btn-text">Kirim Data Sensus</span>
+                <i class="ph ph-paper-plane-tilt"></i><span class="btn-text">Kirim Data</span>
             </button>
         </form>
         <p class="auth-foot" style="margin-top:20px;">

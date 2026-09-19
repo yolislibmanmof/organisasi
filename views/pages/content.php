@@ -1,4 +1,4 @@
-<!-- File: views/pages/content.php -->
+<!-- File: views/pages/content.php (FINAL - TAHAP 5.6) -->
 <section class="page-head">
     <div class="page-head-info">
         <div class="page-eyebrow">Kustomisasi</div>
@@ -53,6 +53,9 @@
                     <label class="field"><span class="field-label">Urutan Tampil</span>
                         <input type="number" name="sort_order" id="oOrder" value="0" min="0"></label>
                 </div>
+                <label class="field"><span class="field-label">Biografi Singkat</span>
+                    <textarea name="bio" id="oBio" rows="3" placeholder="Deskripsi singkat tentang pengurus ini…"></textarea>
+                    <small class="asset-hint">Bila diisi, tombol "Lihat Profile" muncul di beranda publik.</small></label>
             </div>
             <div class="modal-foot">
                 <button type="button" class="btn btn-ghost" data-close-modal><span class="btn-text">Batal</span></button>
@@ -100,7 +103,7 @@
         <div class="modal-head">
             <div class="modal-head-title">
                 <span class="modal-icon grad-4"><i class="ph ph-image"></i></span>
-                <div><h3 id="galleryModalTitle">Tambah Foto Galeri</h3><p class="modal-sub">Foto tampil pada seksi Galeri Kegiatan.</p></div>
+                <div><h3 id="galleryModalTitle">Tambah Foto Galeri</h3><p class="modal-sub">Foto tampil pada seksi Galeri Kegiatan & halaman /galeri.</p></div>
             </div>
             <button type="button" class="modal-close" data-close-modal><i class="ph ph-x"></i></button>
         </div>
@@ -112,8 +115,15 @@
                 <label class="field"><span class="field-label">Judul Foto <em>*</em></span>
                     <input type="text" name="title" id="gTitle" placeholder="Contoh: Bakti Sosial 2026" required>
                     <span class="field-error" data-error="title"></span></label>
+                <div class="field-row">
+                    <label class="field"><span class="field-label">Tanggal Kegiatan</span>
+                        <input type="date" name="event_date" id="gDate"></label>
+                    <label class="field"><span class="field-label">Lokasi</span>
+                        <input type="text" name="location" id="gLocation" placeholder="Contoh: Aula Utama"></label>
+                </div>
                 <label class="field"><span class="field-label">Berkas Gambar <em>*</em></span>
                     <input type="file" name="image" id="gImage" accept="image/jpeg,image/png,image/webp">
+                    <small class="asset-hint">JPG/PNG/WEBP, maks 10 MB.</small>
                     <span class="field-error" data-error="image"></span></label>
             </div>
             <div class="modal-foot">

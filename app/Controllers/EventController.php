@@ -1,17 +1,34 @@
 <?php
-// File: app/Controllers/EventController.php
+// File: app/Controllers/EventController.php (FINAL - TAHAP 5.7)
 declare(strict_types=1);
 
 namespace Controllers;
 
 use Core\Session;
 use Core\View;
+use Middleware\AdminOnly;
 use Middleware\Auth;
 use Models\Event;
 
 class EventController {
+    /* ================= SISI PUBLIK ================= */
+
+    /** Halaman publik /event — arsip & agenda kegiatan */
+    public function publicIndex(): void {
+        $list = Event::publicList();
+        View::render('pages/event', [
+            'title'    => 'Event & Kegiatan',
+            'loggedIn' => (bool) Session::get('user'),
+            'active'   => $list['active'],
+            'done'     => $list['done'],
+        ], 'layouts/public');
+    }
+
+    /* ================= SISI ADMIN ================= */
+
     public function index(): void {
         Auth::handle();
+        AdminOnly::handle();
         View::render('pages/events', [
             'title' => 'Event & Kegiatan',
             'user'  => Session::get('user'),
@@ -20,6 +37,7 @@ class EventController {
 
     public function api(): void {
         Auth::handle();
+        AdminOnly::handle();
         $q       = trim((string) ($_GET['q'] ?? ''));
         $perPage = 6;
         $total   = Event::countSearch($q);
@@ -37,18 +55,21 @@ class EventController {
 
     public function store(): void {
         Auth::handle();
+        AdminOnly::handle();
         if (!csrf_verify($_POST[CSRF_TOKEN_NAME] ?? null)) {
             json(['ok' => false, 'message' => 'Sesi tidak valid.'], 419);
         }
         $data = $this->validate();
-        if (isset($data['errors'])) { json(['ok' => false, 'errors' => $data['errors']], 422); }
-
+        if (isset($data['errors'])) {
+            json(['ok' => false, 'errors' => $data['errors']], 422);
+        }
         Event::create($data, (int) Session::get('user')['id']);
         json(['ok' => true, 'message' => 'Event baru berhasil dijadwalkan.']);
     }
 
     public function update(string $id): void {
         Auth::handle();
+        AdminOnly::handle();
         if (!csrf_verify($_POST[CSRF_TOKEN_NAME] ?? null)) {
             json(['ok' => false, 'message' => 'Sesi tidak valid.'], 419);
         }
@@ -56,14 +77,16 @@ class EventController {
             json(['ok' => false, 'message' => 'Event tidak ditemukan.'], 404);
         }
         $data = $this->validate();
-        if (isset($data['errors'])) { json(['ok' => false, 'errors' => $data['errors']], 422); }
-
+        if (isset($data['errors'])) {
+            json(['ok' => false, 'errors' => $data['errors']], 422);
+        }
         Event::updateMember((int) $id, $data);
         json(['ok' => true, 'message' => 'Perubahan event telah disimpan.']);
     }
 
     public function destroy(string $id): void {
         Auth::handle();
+        AdminOnly::handle();
         if (!csrf_verify($_POST[CSRF_TOKEN_NAME] ?? null)) {
             json(['ok' => false, 'message' => 'Sesi tidak valid.'], 419);
         }

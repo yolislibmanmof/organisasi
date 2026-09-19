@@ -1,5 +1,5 @@
 <?php
-// File: app/Models/Setting.php
+// File: app/Models/Setting.php (FINAL - TAHAP 5.6)
 declare(strict_types=1);
 
 namespace Models;
@@ -50,7 +50,7 @@ class Setting {
 
     /** Konstanta kunci setting */
     public const KEYS = [
-        'app_name', 'visi', 'misi',
+        'app_name', 'visi', 'misi', 'motto', 'cabinet_period',
         'social_instagram', 'social_youtube', 'social_email',
         'social_phone', 'social_address',
         'logo', 'favicon',

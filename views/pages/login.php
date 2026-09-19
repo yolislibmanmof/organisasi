@@ -1,4 +1,23 @@
-<!-- File: views/pages/login.php (FINAL - TAHAP 5.1) -->
+<!-- File: views/pages/login.php (FINAL TERKOREKSI — Tahap 5.6) -->
+
+<style>
+    /* ---- Perbaikan 1: beri ruang di puncak kolom brand agar tombol
+           "Kembali ke beranda" tidak menimpa logo (hanya di layar desktop) ---- */
+    @media (min-width: 821px) {
+        .auth-brand { padding-top: 88px; }
+    }
+    /* ---- Perbaikan 2: tingkatkan kontras tombol kembali ---- */
+    .back-home {
+        background: rgba(10, 15, 31, .65);
+        border-color: rgba(255, 255, 255, .18);
+        color: var(--txt-0);
+    }
+    .back-home:hover {
+        background: rgba(99, 102, 241, .25);
+        border-color: rgba(99, 102, 241, .5);
+        color: #fff;
+    }
+</style>
 
 <!-- Tautan kembali ke landing page publik -->
 <a href="<?= url('') ?>" class="back-home">

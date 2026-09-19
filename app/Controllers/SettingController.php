@@ -86,14 +86,27 @@ class SettingController {
 
     private function handleUpload(?array $file, string $type): array {
         if ($file === null || ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
-            return []; // tidak ada berkas baru, pertahankan lama
+            return []; // tidak ada berkas baru, pertahankan yang lama
         }
-        if ($file['error'] !== UPLOAD_ERR_OK) return ['error' => 'Gagal mengunggah berkas.'];
-        if ($file['size'] > 1 * 1024 * 1024) return ['error' => 'Ukuran maksimal 1 MB.'];
+        // Berkas ditolak oleh php.ini (melebihi upload_max_filesize / post_max_size)
+        if ($file['error'] === UPLOAD_ERR_INI_SIZE || $file['error'] === UPLOAD_ERR_FORM_SIZE) {
+            return ['error' => 'Berkas melebihi batas unggah server. Periksa php.ini (upload_max_filesize & post_max_size).'];
+        }
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            return ['error' => 'Gagal mengunggah berkas.'];
+        }
+        // BATAS BARU: 10 MB
+        if ($file['size'] > 10 * 1024 * 1024) {
+            return ['error' => 'Ukuran maksimal 10 MB.'];
+        }
         $info = @getimagesize($file['tmp_name']);
-        if ($info === false) return ['error' => 'Berkas harus berupa gambar.'];
+        if ($info === false) {
+            return ['error' => 'Berkas harus berupa gambar.'];
+        }
         $allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/x-icon', 'image/vnd.microsoft.icon'];
-        if (!in_array($info['mime'], $allowed, true)) return ['error' => 'Format didukung: PNG, JPG, WEBP, atau ICO.'];
+        if (!in_array($info['mime'], $allowed, true)) {
+            return ['error' => 'Format didukung: PNG, JPG, WEBP, atau ICO.'];
+        }
 
         $ext = match ($info['mime']) {
             'image/jpeg' => 'jpg',

@@ -1,11 +1,10 @@
 <?php
-// File: app/Core/helpers.php
+// File: app/Core/helpers.php (FINAL - TAHAP 5.5)
 declare(strict_types=1);
 
 use Core\Session;
 
 if (!function_exists('e')) {
-    /** Escaping output untuk mencegah XSS */
     function e(mixed $value): string {
         return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
     }
@@ -58,7 +57,6 @@ if (!function_exists('csrf_verify')) {
 }
 
 if (!function_exists('json')) {
-    /** Mengirim respons JSON dan menghentikan eksekusi */
     function json(mixed $data, int $code = 200): never {
         http_response_code($code);
         header('Content-Type: application/json; charset=utf-8');
@@ -68,7 +66,6 @@ if (!function_exists('json')) {
 }
 
 if (!function_exists('avatar_tag')) {
-    /** Menghasilkan tag avatar: foto profil bila ada, selain itu inisial nama */
     function avatar_tag(?array $user, string $extraClass = ''): string {
         $name = $user['name'] ?? 'U';
         if (!empty($user['photo'])) {
@@ -79,8 +76,48 @@ if (!function_exists('avatar_tag')) {
 }
 
 if (!function_exists('setting')) {
-    /** Helper global untuk mengakses setting dari view */
     function setting(string $key, string $default = ''): string {
         return \Models\Setting::get($key, $default);
+    }
+}
+
+/* ============================================================
+   HELPER BARU: Waktu relatif berbahasa Indonesia
+   Menangani masa lalu ("2 jam lalu") DAN masa depan ("dalam 3 hari")
+   ============================================================ */
+if (!function_exists('time_ago')) {
+    function time_ago(?string $datetime): string {
+        if ($datetime === null || $datetime === '') return '-';
+        $ts = strtotime($datetime);
+        if ($ts === false) return '-';
+
+        $diff = time() - $ts;
+
+        // Masa depan
+        if ($diff < 0) {
+            $diff = abs($diff);
+            if ($diff < 86400)    return 'hari ini';
+            if ($diff < 172800)   return 'besok';
+            if ($diff < 604800)   return 'dalam ' . (int) floor($diff / 86400) . ' hari';
+            if ($diff < 2592000)  return 'dalam ' . (int) floor($diff / 604800) . ' minggu';
+            return date('d M Y', $ts);
+        }
+
+        // Masa lalu
+        if ($diff < 60)     return 'baru saja';
+        if ($diff < 3600)   return (int) floor($diff / 60) . ' menit lalu';
+        if ($diff < 86400)  return (int) floor($diff / 3600) . ' jam lalu';
+        if ($diff < 604800) return (int) floor($diff / 86400) . ' hari lalu';
+        if ($diff < 2592000) return (int) floor($diff / 604800) . ' minggu lalu';
+        return date('d M Y', $ts);
+    }
+}
+
+/* ============================================================
+   HELPER BARU: Format angka Indonesia (titik sebagai pemisah ribu)
+   ============================================================ */
+if (!function_exists('num_id')) {
+    function num_id(int|float $n): string {
+        return number_format((float) $n, 0, ',', '.');
     }
 }

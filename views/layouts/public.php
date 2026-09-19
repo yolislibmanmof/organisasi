@@ -1,10 +1,54 @@
-<!-- File: views/layouts/public.php (FINAL - TAHAP 5.4) -->
+<!-- File: views/layouts/public.php (FINAL - TAHAP 5.7) -->
+<?php
+    $appName   = setting('app_name', 'Organisasi');
+    $pubPath   = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    $logo      = setting('logo');
+    $isGaleri  = str_contains($pubPath, '/galeri');
+    $isArtikel = str_contains($pubPath, '/artikel');
+    $isSensus  = str_contains($pubPath, '/sensus');
+    $isAbout   = str_contains($pubPath, '/tentang');
+    $isEvent   = str_contains($pubPath, '/event');
+
+    // ---------- SEO: meta description ----------
+    $metaDesc = match (true) {
+        $pubPath === '/' => 'Situs resmi ' . $appName . ' — rumah kekeluargaan pelajar dan mahasiswa untuk bertumbuh dan berdedikasi.',
+        $isArtikel      => 'Artikel, berita, edukasi, podcast, dan hari besar dari ' . $appName . '.',
+        $isGaleri       => 'Dokumentasi lengkap kegiatan ' . $appName . '.',
+        $isAbout        => 'Mengenal lebih dekat ' . $appName . ': visi, misi, dan struktur kepengurusan.',
+        $isEvent        => 'Arsip event & kegiatan ' . $appName . ' — yang sedang berlangsung dan mendatang.',
+        $isSensus       => 'Formulir sensus anggota ' . $appName . ' — digitalisasi database.',
+        default         => 'Situs resmi ' . $appName . ' — organisasi kekeluargaan pelajar & mahasiswa.',
+    };
+    $ogImage = $logo !== '' ? url('assets/uploads/brand/' . $logo) : url('assets/uploads/brand/default-og.png');
+    $canonical = rtrim(BASE_URL, '/') . $pubPath;
+?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= e($title ?? 'Beranda') ?> • <?= e(setting('app_name', 'Organisasi')) ?></title>
+    <title><?= e($title ?? 'Beranda') ?> • <?= e($appName) ?></title>
+
+    <!-- ========== SEO: Meta Tags ========== -->
+    <meta name="description" content="<?= e($metaDesc) ?>">
+    <meta name="author" content="<?= e($appName) ?>">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="<?= e($canonical) ?>">
+
+    <!-- ========== SEO: Open Graph ========== -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="<?= e($appName) ?>">
+    <meta property="og:title" content="<?= e(($title ?? 'Beranda') . ' • ' . $appName) ?>">
+    <meta property="og:description" content="<?= e($metaDesc) ?>">
+    <meta property="og:url" content="<?= e($canonical) ?>">
+    <meta property="og:image" content="<?= e($ogImage) ?>">
+    <meta property="og:locale" content="id_ID">
+
+    <!-- ========== SEO: Twitter Card ========== -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="<?= e(($title ?? 'Beranda') . ' • ' . $appName) ?>">
+    <meta name="twitter:description" content="<?= e($metaDesc) ?>">
+    <meta name="twitter:image" content="<?= e($ogImage) ?>">
 
     <?php $customFav = setting('favicon'); ?>
     <?php if ($customFav !== ''): ?>
@@ -28,12 +72,6 @@
         <span class="mesh-orb mesh-orb-3"></span>
     </div>
 
-    <?php
-        $pubPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-        $appName = setting('app_name', 'Organisasi');
-        $logo    = setting('logo');
-    ?>
-
     <!-- NAVBAR PUBLIK -->
     <header class="pub-navbar" id="pubNavbar">
         <div class="pub-nav-inner">
@@ -46,12 +84,12 @@
                 <span><?= e($appName) ?></span>
             </a>
             <nav class="pub-nav-links" id="pubNavLinks">
-                <a href="<?= url('') ?>" class="pub-link <?= (str_contains($pubPath, '/artikel') || str_contains($pubPath, '/sensus')) ? '' : 'active' ?>">Beranda</a>
-                <a href="<?= url('') ?>#tentang" class="pub-link" data-scroll>Tentang</a>
-                <a href="<?= url('') ?>#event" class="pub-link" data-scroll>Event</a>
-                <a href="<?= url('artikel') ?>" class="pub-link <?= str_contains($pubPath, '/artikel') ? 'active' : '' ?>">Artikel</a>
-                <a href="<?= url('') ?>#galeri" class="pub-link" data-scroll>Galeri</a>
-                <a href="<?= url('sensus') ?>" class="pub-link <?= str_contains($pubPath, '/sensus') ? 'active' : '' ?>">Sensus</a>
+                <a href="<?= url('') ?>" class="pub-link <?= ($isGaleri || $isArtikel || $isSensus || $isAbout || $isEvent) ? '' : 'active' ?>">Beranda</a>
+                <a href="<?= url('tentang') ?>" class="pub-link <?= $isAbout ? 'active' : '' ?>">Tentang</a>
+                <a href="<?= url('event') ?>" class="pub-link <?= $isEvent ? 'active' : '' ?>">Event</a>
+                <a href="<?= url('artikel') ?>" class="pub-link <?= $isArtikel ? 'active' : '' ?>">Artikel</a>
+                <a href="<?= url('galeri') ?>" class="pub-link <?= $isGaleri ? 'active' : '' ?>">Galeri</a>
+                <a href="<?= url('sensus') ?>" class="pub-link <?= $isSensus ? 'active' : '' ?>">Sensus</a>
                 <a href="<?= url('') ?>#kontak" class="pub-link" data-scroll>Kontak</a>
             </nav>
             <div class="pub-nav-cta">
@@ -104,10 +142,10 @@
             <div class="footer-col">
                 <h4>Navigasi</h4>
                 <a href="<?= url('') ?>">Beranda</a>
-                <a href="<?= url('') ?>#tentang" data-scroll>Tentang</a>
-                <a href="<?= url('') ?>#event" data-scroll>Event</a>
+                <a href="<?= url('tentang') ?>">Tentang</a>
+                <a href="<?= url('event') ?>">Event</a>
                 <a href="<?= url('artikel') ?>">Artikel</a>
-                <a href="<?= url('') ?>#galeri" data-scroll>Galeri</a>
+                <a href="<?= url('galeri') ?>">Galeri</a>
                 <a href="<?= url('sensus') ?>">Sensus</a>
                 <a href="<?= url('login') ?>">Masuk Anggota</a>
             </div>

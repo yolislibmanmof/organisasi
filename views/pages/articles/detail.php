@@ -1,4 +1,31 @@
-<!-- File: views/pages/articles/detail.php -->
+<!-- File: views/pages/articles/detail.php (FINAL - TAHAP 5.7) -->
+<?php
+/** Renderer embed YouTube / audio dari isi artikel */
+function render_article_content(string $content): string {
+    $html = nl2br(htmlspecialchars($content, ENT_QUOTES, 'UTF-8'));
+
+    // YouTube: https://youtu.be/ID atau https://www.youtube.com/watch?v=ID
+    $html = preg_replace_callback(
+        '#(?:https?://)?(?:www\.)?(?:youtu\.be/|youtube\.com/watch\?v=)([A-Za-z0-9_-]+)#i',
+        fn($m) => '<div style="position:relative;padding-bottom:56.25%;height:0;border-radius:14px;overflow:hidden;margin:20px 0;box-shadow:0 20px 50px rgba(2,6,23,.5);">
+            <iframe style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;"
+                    src="https://www.youtube.com/embed/' . $m[1] . '"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowfullscreen loading="lazy"></iframe></div>',
+        $html
+    );
+
+    // Audio: https://.../file.mp3
+    $html = preg_replace_callback(
+        '#(https?://[^\s<]+\.(mp3|ogg|wav))#i',
+        fn($m) => '<audio controls style="width:100%;margin:16px 0;border-radius:10px;">
+            <source src="' . $m[1] . '">Browser tidak mendukung audio.</audio>',
+        $html
+    );
+
+    return $html;
+}
+?>
 <article class="pub-detail">
     <a href="<?= url('artikel') ?>" class="back-link">
         <i class="ph ph-arrow-left"></i> Semua Artikel
@@ -21,7 +48,7 @@
         <?php if (!empty($article['excerpt'])): ?>
             <p class="detail-lead"><?= e($article['excerpt']) ?></p>
         <?php endif; ?>
-        <div class="detail-content"><?= nl2br(e($article['content'])) ?></div>
+        <div class="detail-content"><?= render_article_content($article['content']) ?></div>
     </div>
 
     <?php if (!empty($related)): ?>
