@@ -89,3 +89,10 @@ $router->get('/census', 'CensusController@manage');
 $router->get('/api/census', 'CensusController@api');
 $router->post('/census/approve/{id}', 'CensusController@approve');
 $router->post('/census/delete/{id}', 'CensusController@destroy');
+
+/* ----------------------------------------------------------------
+ | RUTE ADMIN — PENGATURAN SITUS (Tahap 5.4)
+ | ---------------------------------------------------------------- */
+$router->get('/settings', 'SettingController@index');
+$router->post('/settings/save', 'SettingController@save');
+$router->post('/settings/remove-asset', 'SettingController@removeAsset');

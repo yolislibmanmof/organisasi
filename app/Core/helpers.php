@@ -77,3 +77,10 @@ if (!function_exists('avatar_tag')) {
         return '<span class="avatar ' . $extraClass . '">' . e(strtoupper(substr($name, 0, 1))) . '</span>';
     }
 }
+
+if (!function_exists('setting')) {
+    /** Helper global untuk mengakses setting dari view */
+    function setting(string $key, string $default = ''): string {
+        return \Models\Setting::get($key, $default);
+    }
+}

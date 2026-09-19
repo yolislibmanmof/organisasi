@@ -1,4 +1,4 @@
-<!-- File: views/layouts/app.php (FINAL - TAHAP 5.2) -->
+<!-- File: views/layouts/app.php (FINAL - LENGKAP & TERKOREKSI) -->
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -19,6 +19,8 @@
     $isArticles    = str_contains($currentPath, '/articles');
     $isContent     = str_contains($currentPath, '/content');
     $isCensus      = str_contains($currentPath, '/census');
+    $isSettings    = str_contains($currentPath, '/settings');
+    $isAdmin       = (($user['role'] ?? '') === 'admin');
 ?>
 <body data-base="<?= e(BASE_URL) ?>" class="app-shell">
     <!-- Overlay mobile -->
@@ -54,12 +56,12 @@
                 <i class="ph ph-user-circle-gear"></i>
                 <span class="nav-label">Profil Saya</span>
             </a>
-            <?php if (($user['role'] ?? '') === 'admin'): ?>
+
+            <?php if ($isAdmin): ?>
             <a href="<?= url('articles') ?>" class="nav-item <?= $isArticles ? 'active' : '' ?>">
                 <i class="ph ph-newspaper"></i>
                 <span class="nav-label">Artikel</span>
             </a>
-
             <a href="<?= url('content') ?>" class="nav-item <?= $isContent ? 'active' : '' ?>">
                 <i class="ph ph-paint-brush"></i>
                 <span class="nav-label">Konten Situs</span>
@@ -68,6 +70,10 @@
                 <i class="ph ph-clipboard-text"></i>
                 <span class="nav-label">Sensus Anggota</span>
                 <span class="nav-badge" id="censusBadge" style="display:none">0</span>
+            </a>
+            <a href="<?= url('settings') ?>" class="nav-item <?= $isSettings ? 'active' : '' ?>">
+                <i class="ph ph-gear-six"></i>
+                <span class="nav-label">Pengaturan Situs</span>
             </a>
             <?php endif; ?>
         </nav>
@@ -80,6 +86,8 @@
                 <small><?= e(ucfirst($user['role'] ?? 'member')) ?></small>
             </div>
         </div>
+
+        <!-- BLOK KELUAR (WAJIB ADA) -->
         <div class="side-foot">
             <a href="<?= url('logout') ?>" class="nav-item danger">
                 <i class="ph ph-sign-out"></i>

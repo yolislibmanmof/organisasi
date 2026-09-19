@@ -1,4 +1,11 @@
-<!-- File: views/pages/landing.php (FINAL - TAHAP 5.2) -->
+<!-- File: views/pages/landing.php (FINAL - TAHAP 5.4) -->
+<?php
+    $appName = setting('app_name', 'Organisasi');
+    $visi    = trim((string) setting('visi'));
+    $misiRaw = (string) setting('misi');
+    $misiList = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', $misiRaw))));
+?>
+
 <!-- ============ HERO ============ -->
 <section class="pub-hero">
     <div class="hero-inner">
@@ -6,7 +13,7 @@
             <span class="hero-eyebrow"><span class="live-dot"></span> Situs Resmi Organisasi</span>
             <h1 class="hero-title">Tempat <em>pelajar & mahasiswa</em> bertumbuh dan berdedikasi.</h1>
             <p class="hero-sub">
-                <?= e(APP_NAME) ?> adalah rumah kekeluargaan yang mewadahi seluruh pelajar dan mahasiswa
+                <?= e($appName) ?> adalah rumah kekeluargaan yang mewadahi seluruh pelajar dan mahasiswa
                 untuk berkembang melalui kegiatan, pelatihan, dan pengabdian masyarakat.
             </p>
             <div class="hero-cta">
@@ -68,7 +75,8 @@
     </div>
 </section>
 
-<!-- ============ VISI & MISI ============ -->
+<!-- ============ VISI & MISI (DARI SETTING) ============ -->
+<?php if ($visi !== '' || !empty($misiList)): ?>
 <section class="pub-section" id="tentang">
     <div class="section-head reveal">
         <span class="page-eyebrow">Tentang Kami</span>
@@ -76,26 +84,28 @@
         <p>Fondasi yang menuntun setiap langkah dan program organisasi.</p>
     </div>
     <div class="about-grid">
+        <?php if ($visi !== ''): ?>
         <article class="glass-card about-card reveal">
             <div class="about-icon grad-1"><i class="ph ph-eye"></i></div>
             <h3>Visi</h3>
-            <p>
-                Menjadikan <?= e(APP_NAME) ?> sebagai wadah pembentukan insan akademis yang berintegritas,
-                berkompeten, dan berdedikasi — katalisator perubahan positif bagi masyarakat.
-            </p>
+            <p><?= nl2br(e($visi)) ?></p>
         </article>
+        <?php endif; ?>
+
+        <?php if (!empty($misiList)): ?>
         <article class="glass-card about-card reveal">
             <div class="about-icon grad-3"><i class="ph ph-target"></i></div>
             <h3>Misi</h3>
             <ol class="mission-list">
-                <li>Menyelenggarakan kegiatan akademis yang menumbuhkan berpikir kritis, rasional, dan empiris.</li>
-                <li>Menumbuhkan nilai kejujuran, disiplin, tanggung jawab, dan konsisten.</li>
-                <li>Mengasah keterampilan, minat, dan bakat melalui kegiatan serta pelatihan.</li>
-                <li>Mendorong pengabdian anggota bagi kemajuan organisasi dan masyarakat.</li>
+                <?php foreach ($misiList as $m): ?>
+                    <li><?= e($m) ?></li>
+                <?php endforeach; ?>
             </ol>
         </article>
+        <?php endif; ?>
     </div>
 </section>
+<?php endif; ?>
 
 <!-- ============ EVENT MENDATANG ============ -->
 <section class="pub-section" id="event">
@@ -294,7 +304,7 @@
 <section class="pub-cta">
     <div class="cta-card glass-card reveal">
         <h2>Siap menjadi bagian dari perubahan?</h2>
-        <p>Bergabunglah dengan <?= e(APP_NAME) ?> dan dedikasikan karya terbaikmu bagi masyarakat.</p>
+        <p>Bergabunglah dengan <?= e($appName) ?> dan dedikasikan karya terbaikmu bagi masyarakat.</p>
         <div class="hero-cta">
             <a href="<?= url('login') ?>" class="btn btn-primary">
                 <i class="ph ph-sign-in"></i><span class="btn-text">Masuk Sekarang</span>
