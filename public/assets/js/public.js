@@ -1,8 +1,8 @@
-// File: public/assets/js/public.js (ULTIMATE EDITION - TAHAP 5.9)
+// File: public/assets/js/public.js (ULTIMATE EDITION v7.0)
 (() => {
     'use strict';
 
-    /* ========== 1. CUSTOM CURSOR WITH TRAIL ========== */
+    /* 1. CUSTOM CURSOR WITH TRAIL (desktop only) */
     if (window.innerWidth > 768) {
         const cursor = document.createElement('div');
         cursor.className = 'custom-cursor';
@@ -42,7 +42,7 @@
         });
     }
 
-    /* ========== 2. SCROLL PROGRESS INDICATOR ========== */
+    /* 2. SCROLL PROGRESS INDICATOR */
     const progressBar = document.createElement('div');
     progressBar.className = 'scroll-progress';
     document.body.appendChild(progressBar);
@@ -52,26 +52,13 @@
         progressBar.style.width = scrolled + '%';
     });
 
-    /* ========== 3. NAVBAR BERUBAH SAAT DIGULIR ========== */
+    /* 3. NAVBAR SCROLL EFFECT (clean, no burger) */
     const nav = document.getElementById('pubNavbar');
     const onScroll = () => nav?.classList.toggle('scrolled', window.scrollY > 30);
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
 
-    /* ========== 4. MENU MOBILE ========== */
-    const burger = document.getElementById('pubBurger');
-    const links  = document.getElementById('pubNavLinks');
-    burger?.addEventListener('click', () => {
-        if (!links) return;
-        links.classList.toggle('open');
-        burger.querySelector('i').className = links.classList.contains('open') ? 'ph ph-x' : 'ph ph-list';
-    });
-    links?.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
-        links.classList.remove('open');
-        if (burger) burger.querySelector('i').className = 'ph ph-list';
-    }));
-
-    /* ========== 5. GULIR HALUS DENGAN EASING ========== */
+    /* 4. SMOOTH SCROLL */
     document.querySelectorAll('[data-scroll]').forEach(a => {
         a.addEventListener('click', (e) => {
             const hash = (a.getAttribute('href') || '').split('#')[1];
@@ -84,15 +71,18 @@
         });
     });
 
-    /* ========== 6. ANIMASI MUNCUL SAAT DIGULIR ========== */
+    /* 5. SCROLL REVEAL ANIMATION */
     const revealObs = new IntersectionObserver((entries) => {
         entries.forEach(en => {
-            if (en.isIntersecting) { en.target.classList.add('revealed'); revealObs.unobserve(en.target); }
+            if (en.isIntersecting) {
+                en.target.classList.add('revealed');
+                revealObs.unobserve(en.target);
+            }
         });
     }, { threshold: 0.15 });
     document.querySelectorAll('.reveal').forEach(el => revealObs.observe(el));
 
-    /* ========== 7. ANGKA STATISTIK BERTUMBUH ========== */
+    /* 6. COUNTER ANIMATION */
     const countObs = new IntersectionObserver((entries) => {
         entries.forEach(en => {
             if (!en.isIntersecting) return;
@@ -102,7 +92,8 @@
             const tick = (t) => {
                 const p = Math.min(1, (t - t0) / dur);
                 el.textContent = Math.floor(target * (1 - Math.pow(1 - p, 4)));
-                if (p < 1) requestAnimationFrame(tick); else el.textContent = target;
+                if (p < 1) requestAnimationFrame(tick);
+                else el.textContent = target.toLocaleString('id-ID');
             };
             requestAnimationFrame(tick);
             countObs.unobserve(el);
@@ -110,13 +101,16 @@
     }, { threshold: 0.4 });
     document.querySelectorAll('[data-count]').forEach(el => countObs.observe(el));
 
-    /* ========== 8. PARTIKEL LATAR ENHANCED ========== */
+    /* 7. BACKGROUND PARTICLES */
     const canvas = document.getElementById('publicParticles');
     if (canvas) {
         const ctx = canvas.getContext('2d');
         let w, h;
         const pts = [];
-        const resize = () => { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; };
+        const resize = () => {
+            w = canvas.width = window.innerWidth;
+            h = canvas.height = window.innerHeight;
+        };
         resize();
         window.addEventListener('resize', resize);
         const N = window.innerWidth < 768 ? 25 : 55;
@@ -124,7 +118,8 @@
             pts.push({
                 x: Math.random() * w, y: Math.random() * h,
                 r: Math.random() * 1.5 + 0.4,
-                vx: (Math.random() - 0.5) * 0.22, vy: (Math.random() - 0.5) * 0.22,
+                vx: (Math.random() - 0.5) * 0.22,
+                vy: (Math.random() - 0.5) * 0.22,
                 a: Math.random() * 0.35 + 0.12
             });
         }
@@ -158,14 +153,14 @@
         tick();
     }
 
-    /* ========== 9. PARALLAX MULTI-LAYER ========== */
+    /* 8. PARALLAX MULTI-LAYER (hero only) */
     const visual = document.getElementById('heroVisual');
     if (visual && window.innerWidth > 980) {
         window.addEventListener('mousemove', (e) => {
             const x = (e.clientX / window.innerWidth - 0.5) * 20;
             const y = (e.clientY / window.innerHeight - 0.5) * 20;
             visual.style.transform = `translate(${x}px, ${y}px)`;
-            
+
             const cards = visual.querySelectorAll('.float-card');
             cards.forEach((card, i) => {
                 const depth = (i + 1) * 0.5;
@@ -174,7 +169,7 @@
         });
     }
 
-    /* ========== 10. 3D TILT PADA HERO CARDS ========== */
+    /* 9. 3D TILT ON HERO CARDS */
     document.querySelectorAll('.float-card').forEach(card => {
         card.addEventListener('mousemove', function(e) {
             const rect = this.getBoundingClientRect();
@@ -191,7 +186,7 @@
         });
     });
 
-    /* ========== 11. TYPEWRITER EFFECT ========== */
+    /* 10. TYPEWRITER EFFECT */
     const typeText = (el, text, speed = 50) => {
         let i = 0;
         el.textContent = '';
@@ -211,34 +206,44 @@
         setTimeout(() => typeText(typewriterEl, text, 80), 500);
     }
 
-    /* ========== 12. LIGHTBOX GALERI ENHANCED ========== */
+    /* 11. LIGHTBOX GALLERY (DEFINITIVE - NO LEAK) */
     const lightbox = document.getElementById('lightbox');
     const lbImg    = document.getElementById('lightboxImg');
     const lbCap    = document.getElementById('lightboxCap');
 
     if (lightbox && lbImg) {
+        // Force closed on load
+        lightbox.classList.remove('show');
+        lbImg.src = '';
+
+        const openLightbox = (src, title) => {
+            lbImg.src = src;
+            if (lbCap) lbCap.textContent = title || '';
+            lightbox.classList.add('show');
+            document.body.style.overflow = 'hidden';
+        };
         const closeLightbox = () => {
             lightbox.classList.remove('show');
             document.body.style.overflow = '';
+            setTimeout(() => { lbImg.src = ''; }, 300);
         };
 
         document.querySelectorAll('.gallery-item').forEach(item => {
             item.addEventListener('click', () => {
-                lbImg.src = item.dataset.full || '';
-                if (lbCap) lbCap.textContent = item.dataset.title || '';
-                lightbox.classList.add('show');
-                document.body.style.overflow = 'hidden';
+                openLightbox(item.dataset.full || '', item.dataset.title || '');
             });
         });
 
         document.getElementById('lightboxClose')?.addEventListener('click', closeLightbox);
-        lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
+        lightbox.addEventListener('click', (e) => {
+            if (e.target === lightbox) closeLightbox();
+        });
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && lightbox.classList.contains('show')) closeLightbox();
         });
     }
 
-    /* ========== 13. IMAGE LAZY LOADING DENGAN FADE-IN ========== */
+    /* 12. IMAGE LAZY LOADING */
     const lazyImages = document.querySelectorAll('img[data-src]');
     const imageObs = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
@@ -252,33 +257,17 @@
     }, { rootMargin: '50px' });
     lazyImages.forEach(img => imageObs.observe(img));
 
-    /* ========== 14. MAGNETIC LINKS ========== */
+    /* 13. MAGNETIC EFFECT ON LINKS */
     document.querySelectorAll('.pub-link, .btn').forEach(link => {
         link.addEventListener('mousemove', function(e) {
             const rect = this.getBoundingClientRect();
             const x = e.clientX - rect.left - rect.width / 2;
             const y = e.clientY - rect.top - rect.height / 2;
-            this.style.transform = `translate(${x * 0.2}px, ${y * 0.2}px)`;
+            this.style.transform = `translate(${x * 0.15}px, ${y * 0.15}px)`;
         });
         link.addEventListener('mouseleave', function() {
             this.style.transform = '';
         });
-    });
-
-    /* ========== 15. SMOOTH SCROLL KE ATAS ========== */
-    const scrollTopBtn = document.createElement('button');
-    scrollTopBtn.className = 'scroll-top-btn';
-    scrollTopBtn.innerHTML = '<i class="ph ph-arrow-up"></i>';
-    scrollTopBtn.setAttribute('aria-label', 'Gulir ke atas');
-    document.body.appendChild(scrollTopBtn);
-
-    scrollTopBtn.addEventListener('click', () => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-
-    window.addEventListener('scroll', () => {
-        if (window.scrollY > 400) scrollTopBtn.classList.add('show');
-        else scrollTopBtn.classList.remove('show');
     });
 
 })();

@@ -1,9 +1,9 @@
 <?php
 /**
  * ============================================================
- * HALAMAN LOGIN — ULTIMATE EDITION v5.9
+ * HALAMAN LOGIN — ULTIMATE EDITION v7.0
  * Autentikasi dengan sinematik visual, password strength,
- * real-time validation, dan keyboard shortcuts.
+ * caps lock detector, real-time validation, dan keyboard shortcuts.
  * ============================================================
  */
 
@@ -11,7 +11,7 @@ $flash = \Core\Session::getFlash('login_error');
 ?>
 
 <style>
-/* ---- Layout fixes ---- */
+/* ---- Layout & Base ---- */
 @media (min-width: 821px) {
     .auth-brand { padding-top: 88px; }
 }
@@ -26,35 +26,110 @@ $flash = \Core\Session::getFlash('login_error');
     color: #fff;
 }
 
-/* ---- Password Strength Meter ---- */
+/* ---- Form Card Entry Animation ---- */
+.auth-form-card {
+    animation: card-enter 0.6s cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes card-enter {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* ---- Brand Animation ---- */
+.auth-brand {
+    animation: brand-slide 0.8s cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes brand-slide {
+    from {
+        opacity: 0;
+        transform: translateX(-40px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* ---- Password Strength Meter (Enhanced) ---- */
 .password-strength {
     margin-top: 10px;
+    padding: 12px;
+    border-radius: 10px;
+    background: rgba(255,255,255,.02);
+    border: 1px solid var(--glass-brd);
 }
 .strength-bars {
     display: flex;
     gap: 4px;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
 }
 .strength-bar {
     flex: 1;
-    height: 4px;
-    border-radius: 2px;
-    background: rgba(255,255,255,.1);
-    transition: background 0.3s;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(255,255,255,.08);
+    transition: all 0.4s cubic-bezier(.22,1,.36,1);
 }
-.strength-bar.active.weak { background: var(--danger); }
-.strength-bar.active.fair { background: var(--warn); }
-.strength-bar.active.good { background: #22d3ee; }
-.strength-bar.active.strong { background: var(--ok); }
+.strength-bar.active.weak { background: var(--danger); box-shadow: 0 0 10px rgba(239,68,68,.3); }
+.strength-bar.active.fair { background: var(--warn); box-shadow: 0 0 10px rgba(245,158,11,.3); }
+.strength-bar.active.good { background: #22d3ee; box-shadow: 0 0 10px rgba(34,211,238,.3); }
+.strength-bar.active.strong { background: var(--ok); box-shadow: 0 0 10px rgba(16,185,129,.3); }
 .strength-text {
     font-size: 11px;
-    font-weight: 600;
-    color: var(--txt-2);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
+.strength-text i { font-size: 13px; }
 .strength-text.weak { color: var(--danger); }
 .strength-text.fair { color: var(--warn); }
 .strength-text.good { color: #22d3ee; }
 .strength-text.strong { color: var(--ok); }
+
+.strength-tips {
+    margin-top: 8px;
+    font-size: 10.5px;
+    color: var(--txt-2);
+    line-height: 1.5;
+}
+.strength-tips li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+}
+.strength-tips li i {
+    font-size: 12px;
+    flex-shrink: 0;
+}
+.strength-tips li.met {
+    color: var(--ok);
+}
+.strength-tips li.met i { color: var(--ok); }
+
+/* ---- Caps Lock Warning ---- */
+.caps-warning {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    margin-top: 8px;
+    border-radius: 8px;
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    font-size: 12px;
+    color: #fbbf24;
+    animation: alert-shake 0.4s;
+}
+.caps-warning.show { display: flex; }
+.caps-warning i { font-size: 16px; flex-shrink: 0; }
 
 /* ---- Enhanced Alert ---- */
 .alert-enhanced {
@@ -74,9 +149,7 @@ $flash = \Core\Session::getFlash('login_error');
     flex-shrink: 0;
     margin-top: 1px;
 }
-.alert-enhanced-content {
-    flex: 1;
-}
+.alert-enhanced-content { flex: 1; }
 .alert-enhanced-title {
     font-size: 13px;
     font-weight: 700;
@@ -96,11 +169,21 @@ $flash = \Core\Session::getFlash('login_error');
 /* ---- Input Validation States ---- */
 .field-input-wrap.has-success input {
     border-color: var(--ok);
+    box-shadow: 0 0 0 3px rgba(16,185,129,.1);
 }
 .field-input-wrap.has-error input {
     border-color: var(--danger);
+    box-shadow: 0 0 0 3px rgba(239,68,68,.1);
     animation: input-shake 0.4s;
 }
+.field-error-msg {
+    display: none;
+    font-size: 11px;
+    color: var(--danger);
+    margin-top: 6px;
+    padding-left: 2px;
+}
+.field-input-wrap.has-error + .field-error-msg { display: block; }
 @keyframes input-shake {
     0%, 100% { transform: translateX(0); }
     25% { transform: translateX(-4px); }
@@ -283,10 +366,146 @@ $flash = \Core\Session::getFlash('login_error');
     border-color: rgba(99, 102, 241, 0.4);
 }
 
+/* ---- Keyboard Shortcuts Overlay ---- */
+.shortcuts-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 15, 31, 0.8);
+    backdrop-filter: blur(8px);
+    display: grid;
+    place-items: center;
+    z-index: 200;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s;
+}
+.shortcuts-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+.shortcuts-modal {
+    max-width: 500px;
+    width: 90%;
+    padding: 24px;
+    border-radius: 16px;
+    background: rgba(15, 21, 48, 0.95);
+    border: 1px solid var(--glass-brd);
+    box-shadow: 0 30px 80px rgba(0,0,0,.5);
+    transform: scale(0.9) translateY(20px);
+    transition: transform 0.3s cubic-bezier(.22,1,.36,1);
+}
+.shortcuts-overlay.show .shortcuts-modal {
+    transform: scale(1) translateY(0);
+}
+.shortcuts-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--glass-brd);
+}
+.shortcuts-header h3 {
+    font-size: 16px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+}
+.shortcuts-header i { color: var(--acc); }
+.shortcuts-close {
+    background: rgba(255,255,255,.05);
+    border: 1px solid var(--glass-brd);
+    color: var(--txt-1);
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: all 0.2s;
+}
+.shortcuts-close:hover {
+    background: rgba(239,68,68,.15);
+    border-color: var(--danger);
+    color: var(--danger);
+}
+.shortcuts-grid {
+    display: grid;
+    gap: 10px;
+}
+.shortcut-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(255,255,255,.03);
+    border: 1px solid var(--glass-brd);
+}
+.shortcut-item kbd {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.15);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--txt-0);
+    box-shadow: 0 2px 0 rgba(0,0,0,.2);
+    min-width: 60px;
+    text-align: center;
+}
+.shortcut-item span {
+    font-size: 13px;
+    color: var(--txt-1);
+}
+
+/* ---- Rotating Testimonials ---- */
+.testimonial-carousel {
+    position: relative;
+    min-height: 80px;
+}
+.testimonial-item {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transform: translateX(20px);
+    transition: all 0.5s cubic-bezier(.22,1,.36,1);
+}
+.testimonial-item.active {
+    opacity: 1;
+    transform: translateX(0);
+}
+.testimonial-indicators {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+}
+.testimonial-indicators button {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,.2);
+    cursor: pointer;
+    transition: all 0.3s;
+    padding: 0;
+}
+.testimonial-indicators button.active {
+    background: var(--acc);
+    width: 18px;
+    border-radius: 3px;
+}
+
 /* ---- Responsive ---- */
 @media (max-width: 520px) {
     .auth-oauth { grid-template-columns: 1fr; }
     .form-options { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .shortcuts-modal { padding: 18px; }
+    .shortcut-item { padding: 8px 12px; }
 }
 </style>
 
@@ -308,7 +527,7 @@ $flash = \Core\Session::getFlash('login_error');
                         <span class="brand-logo-text">OU</span>
                     </span>
                     <span class="brand-name"><?= e(APP_NAME) ?></span>
-                    <span class="brand-version">v5.9 Ultimate</span>
+                    <span class="brand-version">v7.0 Ultimate</span>
                 </div>
             </div>
             
@@ -362,9 +581,27 @@ $flash = \Core\Session::getFlash('login_error');
                         <span class="t-av" style="background:linear-gradient(135deg,#fbbf24,#f59e0b)">D</span>
                         <span class="t-av t-av-more">+120</span>
                     </div>
-                    <p>
-                        <em>"Platform paling elegan yang pernah kami gunakan untuk mengelola organisasi."</em>
-                    </p>
+                    
+                    <!-- Rotating testimonials -->
+                    <div class="testimonial-carousel" id="testimonialCarousel">
+                        <div class="testimonial-item active" data-index="0">
+                            <p><em>"Platform paling elegan yang pernah kami gunakan untuk mengelola organisasi."</em></p>
+                            <small>— Admin, Organisasi A</small>
+                        </div>
+                        <div class="testimonial-item" data-index="1">
+                            <p><em>"Fitur analitiknya membantu kami memahami pertumbuhan anggota dengan jelas."</em></p>
+                            <small>— Sekretaris, Organisasi B</small>
+                        </div>
+                        <div class="testimonial-item" data-index="2">
+                            <p><em>"Interface yang intuitif membuat semua anggota mudah beradaptasi."</em></p>
+                            <small>— Bendahara, Organisasi C</small>
+                        </div>
+                    </div>
+                    <div class="testimonial-indicators">
+                        <button class="active" data-slide="0" aria-label="Testimonial 1"></button>
+                        <button data-slide="1" aria-label="Testimonial 2"></button>
+                        <button data-slide="2" aria-label="Testimonial 3"></button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -393,7 +630,7 @@ $flash = \Core\Session::getFlash('login_error');
             
             <!-- Flash error message -->
             <?php if ($flash): ?>
-                <div class="alert-enhanced">
+                <div class="alert-enhanced" role="alert">
                     <i class="ph ph-warning-circle"></i>
                     <div class="alert-enhanced-content">
                         <div class="alert-enhanced-title">Gagal Masuk</div>
@@ -402,7 +639,7 @@ $flash = \Core\Session::getFlash('login_error');
                 </div>
             <?php endif; ?>
             
-            <form method="post" action="<?= url('login') ?>" id="loginForm" autocomplete="on" novalidate>
+            <form method="post" action="<?= url('login') ?>" id="loginForm" autocomplete="on" novalidate data-auth-form>
                 <?= csrf_field() ?>
                 
                 <!-- Username field -->
@@ -418,11 +655,13 @@ $flash = \Core\Session::getFlash('login_error');
                             placeholder="nama@organisasi.id" 
                             required 
                             autofocus
-                            autocomplete="username">
+                            autocomplete="username"
+                            aria-describedby="usernameError">
                         <span class="field-validation-icon success"><i class="ph ph-check-circle"></i></span>
                         <span class="field-validation-icon error"><i class="ph ph-x-circle"></i></span>
                         <span class="field-focus-ring"></span>
                     </div>
+                    <span class="field-error-msg" id="usernameError">Username atau email tidak valid</span>
                 </label>
                 
                 <!-- Password field -->
@@ -437,12 +676,21 @@ $flash = \Core\Session::getFlash('login_error');
                             id="password" 
                             placeholder="••••••••" 
                             required
-                            autocomplete="current-password">
+                            autocomplete="current-password"
+                            aria-describedby="passwordError capsWarning">
                         <button type="button" class="pass-toggle" id="passToggle" aria-label="Tampilkan kata sandi">
                             <i class="ph ph-eye" id="passToggleIcon"></i>
                         </button>
                         <span class="field-focus-ring"></span>
                     </div>
+                    <span class="field-error-msg" id="passwordError">Kata sandi wajib diisi</span>
+                    
+                    <!-- Caps lock warning -->
+                    <div class="caps-warning" id="capsWarning" role="alert">
+                        <i class="ph ph-warning"></i>
+                        <span>Caps Lock aktif! Pastikan Anda memasukkan kata sandi dengan benar.</span>
+                    </div>
+                    
                     <!-- Password strength meter -->
                     <div class="password-strength" id="passwordStrength" style="display:none">
                         <div class="strength-bars">
@@ -451,7 +699,17 @@ $flash = \Core\Session::getFlash('login_error');
                             <div class="strength-bar"></div>
                             <div class="strength-bar"></div>
                         </div>
-                        <span class="strength-text" id="strengthText">Kekuatan kata sandi</span>
+                        <span class="strength-text" id="strengthText">
+                            <i class="ph ph-info"></i>
+                            <span>Kekuatan kata sandi</span>
+                        </span>
+                        <ul class="strength-tips" id="strengthTips" style="display:none">
+                            <li data-rule="length"><i class="ph ph-x-circle"></i> Minimal 8 karakter</li>
+                            <li data-rule="uppercase"><i class="ph ph-x-circle"></i> Huruf besar (A-Z)</li>
+                            <li data-rule="lowercase"><i class="ph ph-x-circle"></i> Huruf kecil (a-z)</li>
+                            <li data-rule="number"><i class="ph ph-x-circle"></i> Angka (0-9)</li>
+                            <li data-rule="special"><i class="ph ph-x-circle"></i> Karakter spesial (!@#$%)</li>
+                        </ul>
                     </div>
                 </label>
                 
@@ -519,7 +777,7 @@ $flash = \Core\Session::getFlash('login_error');
     <div class="shortcuts-modal glass-card">
         <div class="shortcuts-header">
             <h3><i class="ph ph-keyboard"></i> Pintasan Keyboard</h3>
-            <button class="shortcuts-close" id="shortcutsClose"><i class="ph ph-x"></i></button>
+            <button class="shortcuts-close" id="shortcutsClose" aria-label="Tutup"><i class="ph ph-x"></i></button>
         </div>
         <div class="shortcuts-grid">
             <div class="shortcut-item">
@@ -531,7 +789,7 @@ $flash = \Core\Session::getFlash('login_error');
                 <span>Berpindah ke field berikutnya</span>
             </div>
             <div class="shortcut-item">
-                <kbd>Shift</kbd> + <kbd>Tab</kbd>
+                <kbd>Shift + Tab</kbd>
                 <span>Berpindah ke field sebelumnya</span>
             </div>
             <div class="shortcut-item">
@@ -548,7 +806,7 @@ $flash = \Core\Session::getFlash('login_error');
 
 <script>
 /* =========================================================
-   LOGIN ULTIMATE — Enhanced Interactions
+   LOGIN ULTIMATE v7.0 — Enhanced Interactions
    ========================================================= */
 (() => {
     'use strict';
@@ -577,25 +835,50 @@ $flash = \Core\Session::getFlash('login_error');
             const isPassword = passInput.type === 'password';
             passInput.type = isPassword ? 'text' : 'password';
             passIcon.className = isPassword ? 'ph ph-eye-slash' : 'ph ph-eye';
+            passToggle.setAttribute('aria-label', isPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi');
         });
     }
     
-    // ---- 3. Password strength meter ----
+    // ---- 3. Caps Lock Detector ----
+    const capsWarning = document.getElementById('capsWarning');
+    if (passInput && capsWarning) {
+        passInput.addEventListener('keyup', (e) => {
+            if (e.getModifierState && e.getModifierState('CapsLock')) {
+                capsWarning.classList.add('show');
+            } else {
+                capsWarning.classList.remove('show');
+            }
+        });
+        passInput.addEventListener('blur', () => {
+            capsWarning.classList.remove('show');
+        });
+    }
+    
+    // ---- 4. Enhanced Password Strength Meter ----
     const strengthMeter = document.getElementById('passwordStrength');
     const strengthBars = strengthMeter?.querySelectorAll('.strength-bar');
     const strengthText = document.getElementById('strengthText');
+    const strengthTips = document.getElementById('strengthTips');
     
-    function checkStrength(password) {
+    function checkPasswordStrength(password) {
+        const rules = {
+            length: password.length >= 8,
+            uppercase: /[A-Z]/.test(password),
+            lowercase: /[a-z]/.test(password),
+            number: /[0-9]/.test(password),
+            special: /[^A-Za-z0-9]/.test(password)
+        };
+        
         let score = 0;
         if (password.length >= 6) score++;
-        if (password.length >= 10) score++;
-        if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score++;
-        if (/[0-9]/.test(password)) score++;
-        if (/[^A-Za-z0-9]/.test(password)) score++;
-        return Math.min(score, 4);
+        if (rules.length && rules.uppercase && rules.lowercase) score++;
+        if (rules.number) score++;
+        if (rules.special) score++;
+        
+        return { score: Math.min(score, 4), rules };
     }
     
-    if (passInput && strengthMeter && strengthBars && strengthText) {
+    if (passInput && strengthMeter && strengthBars && strengthText && strengthTips) {
         passInput.addEventListener('input', () => {
             const val = passInput.value;
             if (val.length === 0) {
@@ -603,10 +886,12 @@ $flash = \Core\Session::getFlash('login_error');
                 return;
             }
             strengthMeter.style.display = 'block';
+            strengthTips.style.display = 'block';
             
-            const score = checkStrength(val);
+            const { score, rules } = checkPasswordStrength(val);
             const levels = ['weak', 'weak', 'fair', 'good', 'strong'];
             const labels = ['Sangat lemah', 'Lemah', 'Cukup', 'Baik', 'Kuat'];
+            const icons = ['ph-warning', 'ph-warning', 'ph-info', 'ph-check-circle', 'ph-shield-check'];
             const level = levels[score];
             
             strengthBars.forEach((bar, i) => {
@@ -617,11 +902,23 @@ $flash = \Core\Session::getFlash('login_error');
             });
             
             strengthText.className = 'strength-text ' + level;
-            strengthText.textContent = labels[score];
+            strengthText.innerHTML = `<i class="ph ${icons[score]}"></i><span>${labels[score]}</span>`;
+            
+            // Update tips
+            strengthTips.querySelectorAll('li').forEach(li => {
+                const rule = li.dataset.rule;
+                if (rules[rule]) {
+                    li.classList.add('met');
+                    li.querySelector('i').className = 'ph ph-check-circle';
+                } else {
+                    li.classList.remove('met');
+                    li.querySelector('i').className = 'ph ph-x-circle';
+                }
+            });
         });
     }
     
-    // ---- 4. Username validation ----
+    // ---- 5. Username validation ----
     const usernameInput = document.getElementById('username');
     const usernameWrap = document.getElementById('usernameWrap');
     
@@ -634,7 +931,6 @@ $flash = \Core\Session::getFlash('login_error');
                 usernameWrap.classList.remove('has-success', 'has-error');
                 if (val.length === 0) return;
                 
-                // Simple validation: email format or 3+ chars
                 const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
                 const isValid = isEmail || val.length >= 3;
                 
@@ -643,7 +939,7 @@ $flash = \Core\Session::getFlash('login_error');
         });
     }
     
-    // ---- 5. Form submit loading state ----
+    // ---- 6. Form submit loading state ----
     const form = document.getElementById('loginForm');
     const submitBtn = document.getElementById('submitBtn');
     
@@ -654,7 +950,7 @@ $flash = \Core\Session::getFlash('login_error');
         });
     }
     
-    // ---- 6. Forgot password handler ----
+    // ---- 7. Forgot password handler ----
     const forgotLink = document.getElementById('forgotLink');
     if (forgotLink) {
         forgotLink.addEventListener('click', (e) => {
@@ -665,19 +961,18 @@ $flash = \Core\Session::getFlash('login_error');
         });
     }
     
-    // ---- 7. Keyboard shortcuts ----
+    // ---- 8. Keyboard shortcuts ----
     const shortcutsOverlay = document.getElementById('shortcutsOverlay');
     const shortcutsClose = document.getElementById('shortcutsClose');
     
     document.addEventListener('keydown', (e) => {
-        // Show shortcuts with '?'
         if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-            if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+            const tag = document.activeElement.tagName;
+            if (tag !== 'INPUT' && tag !== 'TEXTAREA') {
                 e.preventDefault();
                 shortcutsOverlay?.classList.add('show');
             }
         }
-        // Close with Escape
         if (e.key === 'Escape') {
             shortcutsOverlay?.classList.remove('show');
         }
@@ -693,10 +988,37 @@ $flash = \Core\Session::getFlash('login_error');
         }
     });
     
-    // ---- 8. Auto-focus handling ----
-    // If username is filled, focus password
+    // ---- 9. Auto-focus handling ----
     if (usernameInput && passInput && usernameInput.value) {
         passInput.focus();
+    }
+    
+    // ---- 10. Rotating testimonials ----
+    const carousel = document.getElementById('testimonialCarousel');
+    const indicators = document.querySelectorAll('.testimonial-indicators button');
+    
+    if (carousel && indicators.length > 0) {
+        let currentSlide = 0;
+        const slides = carousel.querySelectorAll('.testimonial-item');
+        const totalSlides = slides.length;
+        
+        const showSlide = (index) => {
+            slides.forEach(s => s.classList.remove('active'));
+            indicators.forEach(i => i.classList.remove('active'));
+            slides[index].classList.add('active');
+            indicators[index].classList.add('active');
+            currentSlide = index;
+        };
+        
+        indicators.forEach((btn, i) => {
+            btn.addEventListener('click', () => showSlide(i));
+        });
+        
+        // Auto-rotate every 5 seconds
+        setInterval(() => {
+            const next = (currentSlide + 1) % totalSlides;
+            showSlide(next);
+        }, 5000);
     }
 })();
 </script>

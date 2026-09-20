@@ -1,7 +1,7 @@
 <?php
 /**
  * ============================================================
- * LAYOUT DASHBOARD ADMIN — ULTIMATE EDITION v5.9
+ * LAYOUT DASHBOARD ADMIN — ULTIMATE EDITION v7.0
  * Fondasi semua halaman admin dengan sidebar, topbar,
  * command palette, dan efek visual premium.
  * ============================================================
@@ -28,9 +28,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
-    <link rel="stylesheet" href="<?= asset('css/style.css') ?>?v=<?= time() ?>">
+    <link rel="stylesheet" href="<?= asset('css/style.css') ?>?v=7.0">
 
-    <!-- ========== STYLING LAYOUT-SPECIFIC ========== -->
+    <!-- ========== STYLING LAYOUT-SPECIFIC (v7.0) ========== -->
     <style>
         /* ---- Noise overlay untuk depth visual ---- */
         .noise-overlay {
@@ -58,7 +58,8 @@
             box-shadow: 0 6px 18px rgba(99,102,241,.5);
             transform: scale(1.12);
         }
-        .side-collapse-btn i { font-size: 11px; }
+        .side-collapse-btn i { font-size: 11px; transition: transform .3s; }
+        .sidebar.collapsed .side-collapse-btn i { transform: rotate(180deg); }
         .sidebar.collapsed .side-brand { flex-direction: column; align-items: center; gap: 10px; padding: 6px 0 14px; }
 
         /* ---- User card indicator ---- */
@@ -102,7 +103,29 @@
             color: #a5b4fc; font-size: 10.5px; font-weight: 800; letter-spacing: .6px;
         }
 
-        /* ---- User Dropdown Menu ---- */
+        /* ---- Breadcrumb Enhanced ---- */
+        .breadcrumb {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 13px; font-weight: 600;
+        }
+        .breadcrumb a {
+            color: var(--txt-1);
+            transition: color .2s;
+        }
+        .breadcrumb a:hover { color: var(--acc); }
+        .breadcrumb i { color: var(--txt-2); font-size: 11px; }
+        .breadcrumb span { color: var(--txt-0); }
+        .breadcrumb .breadcrumb-sub {
+            font-size: 11px;
+            color: var(--txt-2);
+            font-weight: 500;
+            margin-left: 8px;
+            padding: 2px 8px;
+            background: rgba(255,255,255,.04);
+            border-radius: 6px;
+        }
+
+        /* ---- User Dropdown Menu (Enhanced) ---- */
         .dx-user-wrap { position: relative; }
         .dx-user-dropdown {
             position: absolute; top: calc(100% + 10px); right: 0;
@@ -117,7 +140,15 @@
             transition: all .25s cubic-bezier(.22,1,.36,1);
             z-index: 50;
         }
-        .dx-user-dropdown.show { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
+        .dx-user-dropdown.show {
+            opacity: 1; visibility: visible;
+            transform: translateY(0) scale(1);
+            animation: dropdown-in .3s cubic-bezier(.22,1,.36,1);
+        }
+        @keyframes dropdown-in {
+            from { opacity: 0; transform: translateY(-12px) scale(.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
         .dx-user-head {
             display: flex; gap: 12px; align-items: center;
             padding: 12px 14px; border-radius: 10px;
@@ -132,13 +163,24 @@
             display: flex; align-items: center; gap: 10px;
             padding: 9px 12px; border-radius: 9px;
             font-size: 12.5px; font-weight: 600; color: var(--txt-0);
-            transition: all .2s;
+            transition: all .2s; text-decoration: none;
         }
         .dx-user-menu a i { font-size: 16px; color: var(--acc); }
         .dx-user-menu a:hover { background: rgba(99,102,241,.12); transform: translateX(2px); }
         .dx-user-menu a.danger { color: #fca5a5; }
         .dx-user-menu a.danger i { color: var(--danger); }
         .dx-user-menu a.danger:hover { background: rgba(239,68,68,.12); }
+        .dx-user-menu a kbd {
+            margin-left: auto;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(255,255,255,.08);
+            font-size: 10px;
+            font-weight: 700;
+            font-family: inherit;
+            color: var(--txt-2);
+            border: 1px solid rgba(255,255,255,.1);
+        }
 
         /* ---- Notifikasi Dropdown ---- */
         .dx-notif-wrap { position: relative; }
@@ -183,7 +225,7 @@
         .dx-notif-empty { padding: 30px 20px; text-align: center; color: var(--txt-2); font-size: 12.5px; }
         .dx-notif-empty i { font-size: 28px; display: block; margin-bottom: 8px; }
 
-        /* ---- Floating Action Button (FAB) ---- */
+        /* ---- Floating Action Button (FAB) ENHANCED ---- */
         .fab-zone {
             position: fixed; bottom: 28px; right: 28px; z-index: 40;
             display: flex; flex-direction: column-reverse; align-items: center; gap: 10px;
@@ -197,7 +239,10 @@
             box-shadow: 0 12px 30px rgba(99,102,241,.45);
             transition: all .3s var(--ease-smooth);
         }
-        .fab-main:hover { transform: rotate(90deg) scale(1.08); box-shadow: 0 16px 40px rgba(34,211,238,.4); }
+        .fab-main i { transition: transform .3s cubic-bezier(.34,1.56,.64,1); }
+        .fab-main:hover { transform: scale(1.08); box-shadow: 0 16px 40px rgba(34,211,238,.4); }
+        .fab-main:hover i { transform: rotate(90deg); }
+        .fab-zone.open .fab-main i { transform: rotate(45deg); }
         .fab-menu {
             display: flex; flex-direction: column; gap: 8px;
             opacity: 0; visibility: hidden;
@@ -215,15 +260,55 @@
             text-decoration: none; white-space: nowrap;
             box-shadow: 0 10px 25px rgba(2,6,23,.4);
             transition: all .2s;
+            opacity: 0;
+            transform: translateY(10px);
         }
+        .fab-zone.open .fab-item {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .fab-zone.open .fab-item:nth-child(1) { transition-delay: .05s; }
+        .fab-zone.open .fab-item:nth-child(2) { transition-delay: .10s; }
+        .fab-zone.open .fab-item:nth-child(3) { transition-delay: .15s; }
+        .fab-zone.open .fab-item:nth-child(4) { transition-delay: .20s; }
+        .fab-zone.open .fab-item:nth-child(5) { transition-delay: .25s; }
         .fab-item i { color: var(--acc); font-size: 16px; }
         .fab-item:hover { transform: translateX(-4px); border-color: var(--pri); background: rgba(99,102,241,.15); }
+
+        /* ---- Toast Zone ---- */
+        .toast-zone {
+            position: fixed; top: 22px; right: 22px; z-index: 200;
+            display: flex; flex-direction: column; gap: 10px;
+            max-width: calc(100vw - 44px);
+            max-height: calc(100vh - 44px);
+            overflow-y: auto;
+        }
+
+        /* ---- Print Styles ---- */
+        @media print {
+            .sidebar, .topbar, .fab-zone, .noise-overlay,
+            .loading-bar, .sidebar-overlay, .toast-zone,
+            .side-collapse-btn, .dx-notif-wrap, .dx-user-wrap,
+            .dx-topbar-extra, .dx-time-display, .top-search { display: none !important; }
+            body, .app-shell { background: #fff !important; color: #000 !important; }
+            .app-main { margin-left: 0 !important; padding: 0 !important; }
+            .app-content { padding: 20px !important; }
+            .glass-card, .glass-panel {
+                background: #fff !important;
+                backdrop-filter: none !important;
+                border: 1px solid #ddd !important;
+                box-shadow: none !important;
+            }
+            .nav-item.active { background: #f3f4f6 !important; }
+            .app-footer { border-top: 1px solid #ddd !important; color: #666 !important; }
+        }
 
         /* ---- Responsive ---- */
         @media (max-width: 720px) {
             .dx-topbar-extra, .dx-time-display { display: none; }
             .dx-notif-dropdown { width: calc(100vw - 32px); right: -60px; }
             .fab-zone { bottom: 20px; right: 20px; }
+            .breadcrumb .breadcrumb-sub { display: none; }
         }
     </style>
 </head>
@@ -238,6 +323,19 @@
     $isCensus    = str_contains($currentPath, '/census');
     $isSettings  = str_contains($currentPath, '/settings');
     $isAdmin     = ($user['role'] ?? '') === 'admin';
+
+    // Breadcrumb sub-label berdasarkan halaman
+    $breadcrumbSub = match (true) {
+        $isDashboard => 'Ringkasan',
+        $isMembers   => 'Manajemen',
+        $isEvents    => 'Agenda',
+        $isProfile   => 'Akun',
+        $isArticles  => 'Publikasi',
+        $isContent   => 'Kustomisasi',
+        $isCensus    => 'Data',
+        $isSettings  => 'Sistem',
+        default      => '',
+    };
 ?>
 <body data-base="<?= e(BASE_URL) ?>" class="app-shell">
     <!-- Noise overlay untuk depth visual -->
@@ -319,6 +417,9 @@
                     <a href="<?= url('dashboard') ?>">Beranda</a>
                     <i class="ph ph-caret-right"></i>
                     <span><?= e($title ?? 'Dashboard') ?></span>
+                    <?php if ($breadcrumbSub): ?>
+                        <span class="breadcrumb-sub"><?= e($breadcrumbSub) ?></span>
+                    <?php endif; ?>
                 </div>
             </div>
             <div class="top-right">
@@ -375,9 +476,9 @@
                             <?php if ($isAdmin): ?>
                             <li><a href="<?= url('settings') ?>"><i class="ph ph-gear-six"></i> Pengaturan</a></li>
                             <?php endif; ?>
-                            <li><a href="#" onclick="window.print(); return false;"><i class="ph ph-printer"></i> Cetak Halaman</a></li>
-                            <li><a href="#" id="dxShortcutHint"><i class="ph ph-keyboard"></i> Pintasan <kbd style="margin-left:auto;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,.08);font-size:10px;font-weight:700">Ctrl+/</kbd></a></li>
-                            <li><a href="<?= url('logout') ?>" class="danger"><i class="ph ph-sign-out"></i> Keluar</a></li>
+                            <li><a href="#" onclick="window.print(); return false;"><i class="ph ph-printer"></i> Cetak Halaman <kbd>Ctrl+P</kbd></a></li>
+                            <li><a href="#" id="dxShortcutHint"><i class="ph ph-keyboard"></i> Pintasan <kbd>Ctrl+/</kbd></a></li>
+                            <li><a href="<?= url('logout') ?>" class="danger"><i class="ph ph-sign-out"></i> Keluar <kbd>Ctrl+Q</kbd></a></li>
                         </ul>
                     </div>
                 </div>
@@ -390,13 +491,13 @@
         <!-- FOOTER -->
         <footer class="app-footer">
             <span>© <?= date('Y') ?> <strong><?= e(APP_NAME) ?></strong></span>
-            <span class="dx-footer-version">v5.9 ULTIMATE</span>
+            <span class="dx-footer-version">v7.0 ULTIMATE</span>
             <span class="footer-sep">•</span>
             <span>Dibangun dengan PHP 8+ & Vanilla JS</span>
         </footer>
     </div>
 
-    <!-- ========== FLOATING ACTION BUTTON ========== -->
+    <!-- ========== FLOATING ACTION BUTTON (ENHANCED) ========== -->
     <?php if ($isAdmin): ?>
     <div class="fab-zone" id="fabZone">
         <button class="fab-main" id="fabMain" aria-label="Aksi cepat" title="Aksi cepat">
@@ -410,7 +511,13 @@
                 <i class="ph ph-calendar-plus"></i><span>Event Baru</span>
             </a>
             <a href="<?= url('articles') ?>?action=add" class="fab-item">
-                <i class="ph ph-article"></i><span>Artikel Baru</span>
+                <i class="ph ph-newspaper"></i><span>Artikel Baru</span>
+            </a>
+            <a href="<?= url('content') ?>" class="fab-item">
+                <i class="ph ph-paint-brush"></i><span>Konten Situs</span>
+            </a>
+            <a href="<?= url('census') ?>" class="fab-item">
+                <i class="ph ph-clipboard-text"></i><span>Sensus</span>
             </a>
         </div>
     </div>
@@ -420,7 +527,7 @@
     <div class="toast-zone" id="toastZone" aria-live="polite"></div>
 
     <!-- SCRIPTS -->
-    <script src="<?= asset('js/app.js') ?>"></script>
+    <script src="<?= asset('js/app.js') ?>?v=7.0"></script>
     <script>
     (() => {
         'use strict';
@@ -451,11 +558,29 @@
         const fabZone = document.getElementById('fabZone');
         const fabMain = document.getElementById('fabMain');
         if (fabZone && fabMain) {
-            fabMain.addEventListener('click', () => fabZone.classList.toggle('open'));
+            fabMain.addEventListener('click', (e) => {
+                e.stopPropagation();
+                fabZone.classList.toggle('open');
+            });
             document.addEventListener('click', (e) => {
                 if (!fabZone.contains(e.target)) fabZone.classList.remove('open');
             });
         }
+
+        // ---- Global keyboard shortcuts ----
+        document.addEventListener('keydown', (e) => {
+            // Escape closes FAB and dropdowns
+            if (e.key === 'Escape') {
+                fabZone?.classList.remove('open');
+                userDrop?.classList.remove('show');
+            }
+            // Ctrl+Q = Logout
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'q') {
+                e.preventDefault();
+                window.location.href = document.body.dataset.base + 'logout';
+            }
+            // Ctrl+P = Print (handled by browser, but prevent default for our custom print)
+        });
         
         // ---- Shortcut hint ----
         document.getElementById('dxShortcutHint')?.addEventListener('click', (e) => {

@@ -1,15 +1,15 @@
 <?php
 /**
  * ============================================================
- * DASHBOARD ADMIN — ULTIMATE EDITION v5.9
+ * DASHBOARD ADMIN — ULTIMATE EDITION v7.0
  * Semua gaya memakai prefix dx- agar tidak bentrok
  * ============================================================
  */
 $hour = (int) date('G');
-if      ($hour < 11) { $dx_greet = 'Selamat pagi';  $dx_greetIcon = 'ph-sun';        $dx_greetEmoji = '☀️';  $dx_greetColor = '#fbbf24'; }
-elseif  ($hour < 15) { $dx_greet = 'Selamat siang'; $dx_greetIcon = 'ph-sun-dim';    $dx_greetEmoji = '🌤️'; $dx_greetColor = '#fb923c'; }
-elseif  ($hour < 19) { $dx_greet = 'Selamat sore';  $dx_greetIcon = 'ph-cloud-sun';  $dx_greetEmoji = '🌇';  $dx_greetColor = '#f472b6'; }
-else                 { $dx_greet = 'Selamat malam'; $dx_greetIcon = 'ph-moon-stars'; $dx_greetEmoji = '🌙';  $dx_greetColor = '#818cf8'; }
+if      ($hour < 11) { $dx_greet = 'Selamat pagi';  $dx_greetIcon = 'ph-sun';        $dx_greetColor = '#fbbf24'; }
+elseif  ($hour < 15) { $dx_greet = 'Selamat siang'; $dx_greetIcon = 'ph-sun-dim';    $dx_greetColor = '#fb923c'; }
+elseif  ($hour < 19) { $dx_greet = 'Selamat sore';  $dx_greetIcon = 'ph-cloud-sun';  $dx_greetColor = '#f472b6'; }
+else                 { $dx_greet = 'Selamat malam'; $dx_greetIcon = 'ph-moon-stars'; $dx_greetColor = '#818cf8'; }
 
 $dx_days   = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
 $dx_months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
@@ -21,6 +21,8 @@ $activeUsers    = (int) ($activeUsers ?? 0);
 $eventThisMonth = (int) ($eventThisMonth ?? 0);
 $activePct      = $totalUsers > 0 ? (int) round(($activeUsers / $totalUsers) * 100) : 0;
 $feed           = $feed ?? [];
+$recentMembers  = $recentMembers ?? [];
+$upcomingEvents = $upcomingEvents ?? [];
 $isAdmin        = ($user['role'] ?? '') === 'admin';
 
 $dx_sys = [
@@ -33,7 +35,7 @@ $dx_sys = [
 ?>
 
 <style>
-/* ============ DASHBOARD ULTIMATE (prefix dx-) ============ */
+/* ============ DASHBOARD ULTIMATE v7.0 (prefix dx-) ============ */
 @keyframes dx-fadeup {
     from { opacity: 0; transform: translateY(16px); }
     to   { opacity: 1; transform: none; }
@@ -44,6 +46,14 @@ $dx_sys = [
 }
 @keyframes dx-bar-rise {
     from { height: 0; }
+}
+@keyframes dx-pulse-soft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .6; }
+}
+@keyframes dx-shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
 }
 
 /* ---- Welcome Hero ---- */
@@ -90,7 +100,7 @@ $dx_sys = [
     letter-spacing: .8px; text-transform: uppercase;
     color: var(--acc); margin-bottom: 6px;
 }
-.dx-greet i { font-size: 15px; }
+.dx-greet i { font-size: 16px; filter: drop-shadow(0 2px 4px rgba(0,0,0,.3)); }
 .dx-copy h1 {
     font-size: clamp(22px, 3vw, 28px);
     font-weight: 800; letter-spacing: -.6px;
@@ -161,7 +171,7 @@ $dx_sys = [
     color: #fff; font-size: 20px;
     flex-shrink: 0;
 }
-.dx-qa-copy { min-width: 0; }
+.dx-qa-copy { min-width: 0; flex: 1; }
 .dx-qa-copy strong {
     display: block; font-size: 13.5px; font-weight: 800;
     margin-bottom: 2px;
@@ -315,7 +325,81 @@ $dx_sys = [
     display: inline-block;
     font-style: normal;
 }
-.dx-chart-area { min-height: 320px; }
+.dx-chart-area {
+    min-height: 320px;
+    position: relative;
+}
+
+/* ---- Chart Loading State ---- */
+.dx-chart-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    min-height: 320px;
+    color: var(--txt-2);
+}
+.dx-chart-loading-spinner {
+    width: 40px; height: 40px;
+    border: 3px solid rgba(99,102,241,.2);
+    border-top-color: var(--acc);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+.dx-chart-loading-text {
+    font-size: 13px;
+    font-weight: 600;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---- Chart Error State ---- */
+.dx-chart-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-height: 320px;
+    text-align: center;
+    padding: 40px 20px;
+}
+.dx-chart-error i {
+    font-size: 42px;
+    color: var(--txt-2);
+    margin-bottom: 8px;
+}
+.dx-chart-error h4 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--txt-0);
+    margin: 0;
+}
+.dx-chart-error p {
+    font-size: 13px;
+    color: var(--txt-1);
+    margin: 0;
+    max-width: 40ch;
+}
+.dx-chart-error button {
+    margin-top: 8px;
+    padding: 8px 18px;
+    border-radius: 10px;
+    background: rgba(99,102,241,.15);
+    border: 1px solid rgba(99,102,241,.3);
+    color: var(--acc);
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.dx-chart-error button:hover {
+    background: rgba(99,102,241,.25);
+    transform: translateY(-2px);
+}
 
 /* ---- Feed + System Grid ---- */
 .dx-grid {
@@ -380,14 +464,36 @@ $dx_sys = [
     padding-top: 5px;
 }
 .dx-feed-empty {
-    padding: 30px 20px;
+    padding: 40px 20px;
     text-align: center; color: var(--txt-1);
     font-size: 13px;
 }
 .dx-feed-empty i {
-    font-size: 32px; color: var(--txt-2);
-    display: block; margin-bottom: 10px;
+    font-size: 42px; color: var(--txt-2);
+    display: block; margin-bottom: 12px;
+    filter: drop-shadow(0 4px 12px rgba(99,102,241,.2));
 }
+.dx-feed-empty h4 {
+    font-size: 15px; font-weight: 700;
+    color: var(--txt-0); margin-bottom: 6px;
+}
+.dx-feed-empty p {
+    font-size: 12.5px; margin-bottom: 16px;
+    max-width: 36ch; margin-left: auto; margin-right: auto;
+}
+.dx-feed-empty-cta {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 9px 18px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--pri), var(--acc));
+    color: #fff; font-size: 12.5px; font-weight: 700;
+    text-decoration: none; transition: all .25s;
+}
+.dx-feed-empty-cta:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(99,102,241,.35);
+}
+
+/* ---- System Info ---- */
 .dx-sys {
     display: flex; flex-direction: column;
 }
@@ -418,6 +524,90 @@ $dx_sys = [
     display: inline-flex; align-items: center; gap: 6px;
 }
 
+/* ---- Two Column Widgets (Recent + Upcoming) ---- */
+.dx-widgets {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 24px;
+}
+.dx-widget-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.dx-widget-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 2px;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+    transition: all .2s;
+}
+.dx-widget-list li:last-child { border-bottom: 0; }
+.dx-widget-list li:hover { padding-left: 4px; }
+.dx-widget-avatar {
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    display: grid; place-items: center;
+    font-size: 15px; font-weight: 800;
+    color: #fff;
+    flex-shrink: 0;
+}
+.dx-widget-info {
+    flex: 1;
+    min-width: 0;
+}
+.dx-widget-info strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.dx-widget-info small {
+    font-size: 11.5px;
+    color: var(--txt-1);
+}
+.dx-widget-meta {
+    font-size: 11px;
+    color: var(--txt-2);
+    font-weight: 600;
+    white-space: nowrap;
+}
+.dx-widget-empty {
+    padding: 30px 20px;
+    text-align: center;
+    color: var(--txt-2);
+    font-size: 12.5px;
+}
+.dx-widget-empty i {
+    font-size: 32px;
+    display: block;
+    margin-bottom: 8px;
+}
+.dx-widget-more {
+    display: block;
+    text-align: center;
+    padding: 10px;
+    margin-top: 8px;
+    border-radius: 10px;
+    background: rgba(255,255,255,.03);
+    border: 1px solid var(--glass-brd);
+    color: var(--txt-1);
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all .2s;
+}
+.dx-widget-more:hover {
+    background: rgba(99,102,241,.1);
+    border-color: rgba(99,102,241,.3);
+    color: var(--acc);
+}
+
 /* ---- Keyboard Banner ---- */
 .dx-kbd {
     margin-top: 8px; padding: 14px 22px;
@@ -430,8 +620,16 @@ $dx_sys = [
     font-size: 12px; color: var(--txt-1);
     animation: dx-fadeup .6s .24s both;
 }
-.dx-kbd span {
+.dx-kbd-item {
     display: inline-flex; align-items: center; gap: 8px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 8px;
+    transition: all .2s;
+}
+.dx-kbd-item:hover {
+    background: rgba(99,102,241,.1);
+    color: var(--acc);
 }
 .dx-kbd kbd {
     display: inline-block;
@@ -445,18 +643,27 @@ $dx_sys = [
 }
 
 /* ---- Responsive ---- */
+@media (max-width: 1200px) {
+    .dx-grid { grid-template-columns: 1fr; }
+    .dx-widgets { grid-template-columns: 1fr; }
+}
 @media (max-width: 980px) {
     .dx-hero {
         grid-template-columns: auto 1fr;
     }
     .dx-date { grid-column: 1 / -1; }
     .dx-actions { grid-template-columns: 1fr 1fr; }
-    .dx-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+    .dx-stats { grid-template-columns: 1fr 1fr; }
+    .dx-chart-head { flex-direction: column; align-items: flex-start; }
 }
 @media (max-width: 560px) {
     .dx-actions { grid-template-columns: 1fr; }
+    .dx-stats { grid-template-columns: 1fr; }
     .dx-hero { padding: 22px; }
     .dx-avatar .avatar { width: 60px; height: 60px; font-size: 22px; }
+    .dx-kbd { gap: 12px; padding: 12px 16px; }
 }
 </style>
 
@@ -468,7 +675,7 @@ $dx_sys = [
     <div class="dx-copy">
         <span class="dx-greet">
             <i class="ph <?= $dx_greetIcon ?>" style="color:<?= $dx_greetColor ?>"></i>
-            <?= $dx_greetEmoji ?> <?= e($dx_greet) ?>, <?= e($user['name']) ?>!
+            <?= e($dx_greet) ?>, <?= e($user['name']) ?>!
         </span>
         <h1>Selamat datang kembali</h1>
         <p>Berikut ringkasan aktivitas dan pertumbuhan <strong><?= e(APP_NAME) ?></strong> hari ini. Semua data dibaca real-time dari basis data.</p>
@@ -484,6 +691,7 @@ $dx_sys = [
 
 <!-- ============ QUICK ACTIONS ============ -->
 <section class="dx-actions">
+    <?php if ($isAdmin): ?>
     <a href="<?= url('members') ?>" class="dx-qa">
         <div class="dx-qa-icon grad-1"><i class="ph ph-user-plus"></i></div>
         <div class="dx-qa-copy">
@@ -500,7 +708,6 @@ $dx_sys = [
         </div>
         <i class="ph ph-arrow-right dx-qa-arrow"></i>
     </a>
-    <?php if ($isAdmin): ?>
     <a href="<?= url('articles') ?>" class="dx-qa">
         <div class="dx-qa-icon grad-2"><i class="ph ph-newspaper"></i></div>
         <div class="dx-qa-copy">
@@ -519,7 +726,7 @@ $dx_sys = [
     </a>
     <?php else: ?>
     <a href="<?= url('profile') ?>" class="dx-qa">
-        <div class="dx-qa-icon grad-2"><i class="ph ph-identification-card"></i></div>
+        <div class="dx-qa-icon grad-1"><i class="ph ph-identification-card"></i></div>
         <div class="dx-qa-copy">
             <strong>Profil Saya</strong>
             <small>Perbarui data pribadi</small>
@@ -527,10 +734,26 @@ $dx_sys = [
         <i class="ph ph-arrow-right dx-qa-arrow"></i>
     </a>
     <a href="<?= url('events') ?>" class="dx-qa">
-        <div class="dx-qa-icon grad-3"><i class="ph ph-broadcast"></i></div>
+        <div class="dx-qa-icon grad-2"><i class="ph ph-calendar-blank"></i></div>
         <div class="dx-qa-copy">
-            <strong>Event Berlangsung</strong>
-            <small>Lihat agenda hari ini</small>
+            <strong>Lihat Event</strong>
+            <small>Agenda organisasi</small>
+        </div>
+        <i class="ph ph-arrow-right dx-qa-arrow"></i>
+    </a>
+    <a href="<?= url('articles') ?>" class="dx-qa">
+        <div class="dx-qa-icon grad-3"><i class="ph ph-newspaper"></i></div>
+        <div class="dx-qa-copy">
+            <strong>Baca Artikel</strong>
+            <small>Publikasi terbaru</small>
+        </div>
+        <i class="ph ph-arrow-right dx-qa-arrow"></i>
+    </a>
+    <a href="<?= url('sensus') ?>" class="dx-qa">
+        <div class="dx-qa-icon grad-4"><i class="ph ph-clipboard-text"></i></div>
+        <div class="dx-qa-copy">
+            <strong>Isi Sensus</strong>
+            <small>Perbarui data anggota</small>
         </div>
         <i class="ph ph-arrow-right dx-qa-arrow"></i>
     </a>
@@ -610,7 +833,73 @@ $dx_sys = [
             <div class="dx-legend"><i></i><span>Pendaftar Baru</span></div>
         </div>
     </div>
-    <div id="chartRegistrations" class="dx-chart-area"></div>
+    <div id="chartRegistrations" class="dx-chart-area">
+        <div class="dx-chart-loading" id="chartLoading">
+            <div class="dx-chart-loading-spinner"></div>
+            <span class="dx-chart-loading-text">Memuat data grafik...</span>
+        </div>
+    </div>
+</section>
+
+<!-- ============ RECENT MEMBERS + UPCOMING EVENTS ============ -->
+<section class="dx-widgets">
+    <section class="dx-card">
+        <div class="dx-card-head">
+            <h3><i class="ph ph-users-three"></i> Anggota Terbaru</h3>
+            <a href="<?= url('members') ?>" class="dx-badge"><i class="ph ph-arrow-right"></i> Lihat Semua</a>
+        </div>
+        <?php if (!empty($recentMembers)): ?>
+        <ul class="dx-widget-list">
+            <?php foreach (array_slice($recentMembers, 0, 5) as $m):
+                $initial = strtoupper(substr($m['name'] ?? 'U', 0, 1));
+                $grads = ['grad-1','grad-2','grad-3','grad-4'];
+                $grad = $grads[array_rand($grads)];
+            ?>
+            <li>
+                <span class="dx-widget-avatar <?= $grad ?>"><?= e($initial) ?></span>
+                <div class="dx-widget-info">
+                    <strong><?= e($m['name'] ?? 'Pengguna') ?></strong>
+                    <small><?= e($m['email'] ?? '') ?></small>
+                </div>
+                <span class="dx-widget-meta"><?= e(time_ago($m['created_at'] ?? 'now')) ?></span>
+            </li>
+            <?php endforeach; ?>
+        </ul>
+        <?php else: ?>
+        <div class="dx-widget-empty">
+            <i class="ph ph-users-three"></i>
+            Belum ada anggota terdaftar
+        </div>
+        <?php endif; ?>
+    </section>
+
+    <section class="dx-card">
+        <div class="dx-card-head">
+            <h3><i class="ph ph-calendar-check"></i> Event Mendatang</h3>
+            <a href="<?= url('events') ?>" class="dx-badge"><i class="ph ph-arrow-right"></i> Lihat Semua</a>
+        </div>
+        <?php if (!empty($upcomingEvents)): ?>
+        <ul class="dx-widget-list">
+            <?php foreach (array_slice($upcomingEvents, 0, 5) as $ev):
+                $date = strtotime($ev['event_date'] ?? 'now');
+            ?>
+            <li>
+                <span class="dx-widget-avatar grad-4"><?= date('d', $date) ?></span>
+                <div class="dx-widget-info">
+                    <strong><?= e($ev['title'] ?? 'Event') ?></strong>
+                    <small><?= e($ev['location'] ?? 'Lokasi belum ditentukan') ?></small>
+                </div>
+                <span class="dx-widget-meta"><?= date('M', $date) ?></span>
+            </li>
+            <?php endforeach; ?>
+        </ul>
+        <?php else: ?>
+        <div class="dx-widget-empty">
+            <i class="ph ph-calendar-blank"></i>
+            Belum ada event terjadwal
+        </div>
+        <?php endif; ?>
+    </section>
 </section>
 
 <!-- ============ FEED + SYSTEM ============ -->
@@ -638,7 +927,14 @@ $dx_sys = [
         <?php else: ?>
         <div class="dx-feed-empty">
             <i class="ph ph-clock-countdown"></i>
-            Belum ada aktivitas tercatat. Mulai dengan menambahkan anggota, event, atau artikel pertama.
+            <h4>Belum Ada Aktivitas</h4>
+            <p>Mulai perjalanan organisasi Anda dengan menambahkan anggota, event, atau artikel pertama.</p>
+            <?php if ($isAdmin): ?>
+            <a href="<?= url('members') ?>?action=add" class="dx-feed-empty-cta">
+                <i class="ph ph-user-plus"></i>
+                <span>Tambah Anggota Pertama</span>
+            </a>
+            <?php endif; ?>
         </div>
         <?php endif; ?>
     </section>
@@ -651,7 +947,7 @@ $dx_sys = [
         <div class="dx-sys">
             <div class="dx-sys-item">
                 <span><i class="ph ph-code"></i> Versi Aplikasi</span>
-                <strong>v5.9 ULTIMATE</strong>
+                <strong>v7.0 ULTIMATE</strong>
             </div>
             <div class="dx-sys-item">
                 <span><i class="ph ph-file-php"></i> PHP Engine</span>
@@ -683,15 +979,17 @@ $dx_sys = [
 
 <!-- ============ KEYBOARD BANNER ============ -->
 <div class="dx-kbd">
-    <span><kbd>⌘</kbd><kbd>K</kbd> Pencarian Cepat</span>
-    <span><kbd>⌘</kbd><kbd>/</kbd> Buka Pintasan</span>
-    <span><kbd>Esc</kbd> Tutup Modal</span>
-    <span><kbd>↵</kbd> Konfirmasi</span>
+    <span class="dx-kbd-item" id="kbdSearch"><kbd>⌘</kbd><kbd>K</kbd> Pencarian Cepat</span>
+    <span class="dx-kbd-item" id="kbdShortcuts"><kbd>⌘</kbd><kbd>/</kbd> Buka Pintasan</span>
+    <span class="dx-kbd-item"><kbd>Esc</kbd> Tutup Modal</span>
+    <span class="dx-kbd-item"><kbd>↵</kbd> Konfirmasi</span>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.49.0/dist/apexcharts.min.js" crossorigin="anonymous"></script>
 <script>
 (function(){
+    'use strict';
+
     // ---- Counter animasi ----
     const obs = new IntersectionObserver((entries) => {
         entries.forEach(en => {
@@ -713,10 +1011,38 @@ $dx_sys = [
 
     // ---- Chart ApexCharts ----
     const chartEl = document.getElementById('chartRegistrations');
-    if (chartEl && window.ApexCharts) {
+    const chartLoading = document.getElementById('chartLoading');
+
+    function showChartError() {
+        if (chartEl) {
+            chartEl.innerHTML = `
+                <div class="dx-chart-error">
+                    <i class="ph ph-chart-line-down"></i>
+                    <h4>Gagal Memuat Grafik</h4>
+                    <p>Data grafik tidak dapat dimuat. Periksa koneksi internet atau coba muat ulang halaman.</p>
+                    <button onclick="location.reload()">
+                        <i class="ph ph-arrows-clockwise"></i>
+                        Muat Ulang
+                    </button>
+                </div>
+            `;
+        }
+    }
+
+    function loadChart() {
+        if (!chartEl || typeof ApexCharts === 'undefined') {
+            showChartError();
+            return;
+        }
+
         fetch('<?= url('api/stats/registrations') ?>')
-            .then(r => r.json())
+            .then(r => {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
             .then(d => {
+                if (chartLoading) chartLoading.style.display = 'none';
+
                 new ApexCharts(chartEl, {
                     chart: {
                         type: 'area', height: 320,
@@ -733,7 +1059,7 @@ $dx_sys = [
                     },
                     yaxis: {
                         labels: { style: { colors: '#9aa3c7', fontSize: '11px', fontWeight: 600 } },
-                        forceIntegers: true
+                        forceNiceScale: true
                     },
                     colors: ['#22d3ee'],
                     stroke: { curve: 'smooth', width: 3 },
@@ -752,9 +1078,38 @@ $dx_sys = [
                     theme: { mode: 'dark' }
                 }).render();
             })
-            .catch(() => {
-                chartEl.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--txt-2)"><i class="ph ph-chart-line-down" style="font-size:36px;display:block;margin-bottom:10px"></i>Gagal memuat data grafik.</div>';
-            });
+            .catch(showChartError);
+    }
+
+    // Tunggu ApexCharts siap, atau timeout setelah 5 detik
+    if (typeof ApexCharts !== 'undefined') {
+        loadChart();
+    } else {
+        const checkInterval = setInterval(() => {
+            if (typeof ApexCharts !== 'undefined') {
+                clearInterval(checkInterval);
+                loadChart();
+            }
+        }, 100);
+        setTimeout(() => {
+            clearInterval(checkInterval);
+            if (typeof ApexCharts === 'undefined') showChartError();
+        }, 5000);
+    }
+
+    // ---- Keyboard banner click handlers ----
+    const kbdSearch = document.getElementById('kbdSearch');
+    const kbdShortcuts = document.getElementById('kbdShortcuts');
+
+    if (kbdSearch) {
+        kbdSearch.addEventListener('click', () => {
+            document.getElementById('globalSearch')?.focus();
+        });
+    }
+    if (kbdShortcuts) {
+        kbdShortcuts.addEventListener('click', () => {
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: '/', ctrlKey: true }));
+        });
     }
 })();
 </script>

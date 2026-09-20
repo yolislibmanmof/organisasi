@@ -1,13 +1,8 @@
 /* ========================================================================
-   ORGANISASI ULTIMATE — LANDING.CSS (PUBLIC & AUTH ONLY)
-   Versi: 5.9 ULTIMATE — Properly Scoped
-   Scope: Navbar publik, Hero, About, Officers, Testimoni, Galeri,
-          Artikel Publik, Detail, Sensus, Auth Login, Back Home
+   ORGANISASI ULTIMATE — LANDING.CSS v6.0
+   Navbar premium, footer kaya, responsive sempurna
    ======================================================================== */
 
-/* ============================================================
-   1. SHARED FOUNDATIONS (required for standalone pages)
-   ============================================================ */
 :root {
     --bg-0: #0a0f1f;
     --bg-1: #0f1530;
@@ -71,9 +66,7 @@ textarea:-webkit-autofill {
     caret-color: #f4f6ff;
 }
 
-/* ============================================================
-   2. PUBLIC BACKGROUND LAYERS
-   ============================================================ */
+/* 2. PUBLIC BACKGROUND LAYERS */
 .public-body::before {
     content: '';
     position: fixed; inset: 0; z-index: -2;
@@ -100,58 +93,96 @@ textarea:-webkit-autofill {
 .public-particles { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
 .public-mesh { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
 
-/* ============================================================
-   3. PUBLIC GLASS CARD (shared utility)
-   ============================================================ */
+/* 3. PUBLIC GLASS CARD */
 .glass-card {
     background: var(--glass);
     backdrop-filter: blur(18px) saturate(140%);
     -webkit-backdrop-filter: blur(18px) saturate(140%);
     border: 1px solid var(--glass-brd);
     border-radius: var(--rad-lg);
-    box-shadow: 
+    box-shadow:
         0 20px 60px rgba(2, 6, 23, .35),
         inset 0 1px 0 rgba(255,255,255,.05);
     transition: transform .4s var(--ease-smooth), box-shadow .4s var(--ease-smooth);
 }
 .glass-card:hover {
-    box-shadow: 
+    box-shadow:
         0 30px 80px rgba(2, 6, 23, .5),
         inset 0 1px 0 rgba(255,255,255,.08);
 }
 
-/* ============================================================
-   4. PUBLIC NAVBAR
-   ============================================================ */
+/* 4. PUBLIC NAVBAR (v7.0 - CLEAN & PROFESSIONAL) */
 .pub-navbar {
     position: fixed; top: 0; left: 0; right: 0; z-index: 50;
-    padding: 18px 0; transition: .3s;
+    padding: 18px 0;
+    background: transparent;
+    transition: all .35s cubic-bezier(.22,1,.36,1);
 }
 .pub-navbar.scrolled {
-    padding: 10px 0;
-    background: rgba(10, 15, 31, .78);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
+    padding: 12px 0;
+    background: rgba(10, 15, 31, .88);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
     border-bottom: 1px solid var(--glass-brd);
+    box-shadow: 0 10px 40px rgba(2,6,23,.5);
 }
 .pub-nav-inner {
     max-width: 1180px; margin: 0 auto; padding: 0 24px;
-    display: flex; align-items: center; gap: 26px;
+    display: flex; align-items: center; gap: 28px;
 }
 .pub-brand {
     display: flex; align-items: center; gap: 12px;
     font-weight: 800; font-size: 16px; white-space: nowrap;
+    text-decoration: none; color: var(--txt-0);
+    transition: all .3s var(--ease-smooth);
 }
-.pub-brand-logo { height: 36px; width: auto; border-radius: 9px; object-fit: contain; }
-.pub-nav-links { display: flex; gap: 4px; margin-left: auto; }
+.pub-brand:hover { transform: translateY(-1px); }
+.pub-brand-logo {
+    height: 38px; width: auto; border-radius: 10px; object-fit: contain;
+    transition: transform .3s;
+    filter: drop-shadow(0 4px 12px rgba(99,102,241,.3));
+}
+.pub-brand:hover .pub-brand-logo { transform: scale(1.05); }
+.logo-mark {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--pri), var(--acc));
+    display: grid; place-items: center;
+    color: #fff; font-size: 14px; font-weight: 900;
+    box-shadow: 0 8px 20px rgba(99,102,241,.4);
+}
+.pub-nav-links {
+    display: flex; gap: 4px; margin-left: auto;
+    align-items: center;
+}
 .pub-link {
     padding: 9px 14px; border-radius: 10px;
     color: var(--txt-1); font-weight: 600; font-size: 13.5px;
-    transition: all .2s var(--ease-smooth);
+    transition: all .25s var(--ease-smooth);
+    position: relative; text-decoration: none;
 }
-.pub-link:hover { color: #fff; background: rgba(255,255,255,.06); transform: translateY(-1px); }
-.pub-link.active { color: #fff; }
+.pub-link:hover {
+    color: #fff;
+    background: rgba(255,255,255,.06);
+    transform: translateY(-1px);
+}
+.pub-link.active {
+    color: #fff;
+    background: rgba(99,102,241,.08);
+}
+.pub-link::after {
+    content: ''; position: absolute;
+    bottom: 4px; left: 14px; right: 14px; height: 2px;
+    background: linear-gradient(90deg, var(--pri), var(--acc));
+    border-radius: 2px;
+    transform: scaleX(0); transform-origin: left;
+    transition: transform .35s var(--ease-smooth);
+}
+.pub-link:hover::after, .pub-link.active::after { transform: scaleX(1); }
+
 .pub-nav-cta { display: flex; align-items: center; gap: 10px; }
+
+/* BURGER: Default HIDDEN di desktop, tampil di mobile */
 .pub-burger {
     display: none; place-items: center;
     width: 38px; height: 38px; border-radius: 10px;
@@ -161,9 +192,7 @@ textarea:-webkit-autofill {
 }
 .pub-burger:hover { background: rgba(255,255,255,.1); border-color: var(--pri); }
 
-/* ============================================================
-   5. HERO SECTION
-   ============================================================ */
+/* 5. HERO SECTION */
 .pub-hero {
     position: relative; z-index: 1; min-height: 100vh;
     display: flex; align-items: center;
@@ -260,9 +289,7 @@ textarea:-webkit-autofill {
     50% { transform: translate(-50%, 8px); }
 }
 
-/* ============================================================
-   6. STATS BAND
-   ============================================================ */
+/* 6. STATS BAND */
 .pub-stats { position: relative; z-index: 1; max-width: 1180px; margin: -30px auto 0; padding: 0 24px; }
 .stats-band { display: grid; grid-template-columns: repeat(4, 1fr); align-items: center; padding: 28px 10px; }
 .band-item { text-align: center; }
@@ -270,17 +297,13 @@ textarea:-webkit-autofill {
 .band-item span { color: var(--txt-1); font-size: 12.5px; font-weight: 600; }
 .band-sep { width: 1px; height: 44px; background: var(--glass-brd); justify-self: center; }
 
-/* ============================================================
-   7. SECTION COMMON
-   ============================================================ */
+/* 7. SECTION COMMON */
 .pub-section { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 100px 24px 0; }
 .section-head { text-align: center; margin-bottom: 48px; }
 .section-head h2 { font-size: clamp(28px, 3.4vw, 38px); font-weight: 800; letter-spacing: -1px; margin-bottom: 10px; }
 .section-head p { color: var(--txt-1); font-size: 14.5px; max-width: 56ch; margin: 0 auto; }
 
-/* ============================================================
-   8. VISI & MISI
-   ============================================================ */
+/* 8. VISI & MISI */
 .about-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 22px; }
 .about-card { padding: 32px; transition: transform .3s, box-shadow .3s; }
 .about-card:hover { transform: translateY(-6px); box-shadow: 0 26px 60px rgba(2,6,23,.55); }
@@ -303,9 +326,7 @@ textarea:-webkit-autofill {
     color: #a5b4fc; font-size: 11px; font-weight: 800;
 }
 
-/* ============================================================
-   9. PUBLIC EVENTS
-   ============================================================ */
+/* 9. PUBLIC EVENTS */
 .pub-events { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .pub-event-card { overflow: hidden; display: flex; flex-direction: column; transition: transform .3s, box-shadow .3s; }
 .pub-event-card:hover { transform: translateY(-6px); box-shadow: 0 26px 60px rgba(2,6,23,.55); }
@@ -321,9 +342,7 @@ textarea:-webkit-autofill {
 .pec-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
 .pec-head h3 { font-size: 15px; font-weight: 800; line-height: 1.4; }
 
-/* ============================================================
-   10. FEATURES GRID
-   ============================================================ */
+/* 10. FEATURES GRID */
 .feat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
 .feat-card { padding: 28px 24px; transition: transform .3s, box-shadow .3s; }
 .feat-card:hover { transform: translateY(-6px); box-shadow: 0 26px 60px rgba(2,6,23,.55); }
@@ -331,9 +350,7 @@ textarea:-webkit-autofill {
 .feat-card h3 { font-size: 15px; font-weight: 800; margin-bottom: 8px; }
 .feat-card p { color: var(--txt-1); font-size: 13px; line-height: 1.65; }
 
-/* ============================================================
-   11. PUBLIC CTA
-   ============================================================ */
+/* 11. PUBLIC CTA */
 .pub-cta { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 100px 24px; }
 .cta-card {
     position: relative; overflow: hidden;
@@ -348,44 +365,86 @@ textarea:-webkit-autofill {
 .cta-card p { color: var(--txt-1); font-size: 14.5px; margin-bottom: 28px; }
 .cta-card .hero-cta { justify-content: center; animation: none; }
 
-/* ============================================================
-   12. PUBLIC FOOTER
-   ============================================================ */
+/* 12. PUBLIC FOOTER (v7.0 - RICH & PROFESSIONAL) */
 .pub-footer {
     position: relative; z-index: 1;
     border-top: 1px solid var(--glass-brd);
-    background: rgba(10,15,31,.6);
-    backdrop-filter: blur(14px);
+    background: rgba(10,15,31,.7);
+    backdrop-filter: blur(16px);
 }
 .footer-grid {
     max-width: 1180px; margin: 0 auto;
-    padding: 56px 24px 40px;
-    display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 40px;
+    padding: 60px 24px 44px;
+    display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 44px;
 }
-.footer-brand p { color: var(--txt-1); font-size: 13.5px; line-height: 1.7; margin: 16px 0 20px; max-width: 40ch; }
-.footer-socials { display: flex; gap: 10px; }
+.footer-brand { position: relative; }
+.footer-brand .pub-brand {
+    font-size: 18px; margin-bottom: 16px;
+    display: inline-flex;
+}
+.footer-brand p {
+    color: var(--txt-1); font-size: 13.5px; line-height: 1.7;
+    margin: 0 0 20px; max-width: 40ch;
+}
+.footer-brand::after {
+    content: ''; position: absolute;
+    top: 0; right: 0; width: 1px; height: 100%;
+    background: linear-gradient(180deg, transparent, var(--glass-brd), transparent);
+}
+.footer-socials { display: flex; gap: 10px; flex-wrap: wrap; }
 .footer-socials a {
-    width: 38px; height: 38px; border-radius: 11px;
+    width: 40px; height: 40px; border-radius: 12px;
     display: grid; place-items: center;
-    background: rgba(255,255,255,.05); border: 1px solid var(--glass-brd);
-    color: var(--txt-1); font-size: 17px; transition: .2s;
+    background: rgba(255,255,255,.05);
+    border: 1px solid var(--glass-brd);
+    color: var(--txt-1); font-size: 18px;
+    transition: all .3s var(--ease-smooth);
 }
-.footer-socials a:hover { color: #fff; border-color: var(--pri); background: rgba(99,102,241,.18); transform: translateY(-3px); }
-.footer-col h4 { font-size: 13px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; color: var(--txt-0); margin-bottom: 16px; }
-.footer-col a { display: block; color: var(--txt-1); font-size: 13.5px; padding: 5px 0; transition: .2s; }
-.footer-col a:hover { color: var(--acc); transform: translateX(4px); }
-.footer-col p { display: flex; align-items: center; gap: 9px; color: var(--txt-1); font-size: 13.5px; padding: 5px 0; }
-.footer-col p i { color: var(--acc); font-size: 15px; }
+.footer-socials a:hover {
+    color: #fff; border-color: var(--pri);
+    background: rgba(99,102,241,.18);
+    transform: translateY(-3px) scale(1.08);
+    box-shadow: 0 8px 20px rgba(99,102,241,.3);
+}
+.footer-col h4 {
+    font-size: 13px; font-weight: 800; letter-spacing: .8px;
+    text-transform: uppercase; color: var(--txt-0); margin-bottom: 18px;
+    position: relative;
+}
+.footer-col h4::before {
+    content: ''; display: block;
+    width: 28px; height: 2px;
+    background: linear-gradient(90deg, var(--pri), var(--acc));
+    margin-bottom: 10px; border-radius: 2px;
+}
+.footer-col a {
+    display: block; color: var(--txt-1); font-size: 13.5px;
+    padding: 6px 0; transition: all .25s;
+    position: relative; text-decoration: none;
+}
+.footer-col a::before {
+    content: '→'; position: absolute;
+    left: -16px; opacity: 0;
+    color: var(--acc); font-size: 12px;
+    transition: all .25s;
+}
+.footer-col a:hover::before { left: 0; opacity: 1; }
+.footer-col a:hover { color: var(--acc); padding-left: 16px; transform: translateX(2px); }
+.footer-col p {
+    display: flex; align-items: center; gap: 10px;
+    color: var(--txt-1); font-size: 13.5px; padding: 6px 0;
+    margin: 0;
+}
+.footer-col p i { color: var(--acc); font-size: 16px; }
 .footer-bottom {
-    max-width: 1180px; margin: 0 auto; padding: 18px 24px 26px;
+    max-width: 1180px; margin: 0 auto; padding: 20px 24px 28px;
     border-top: 1px solid var(--glass-brd);
     display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
     color: var(--txt-2); font-size: 12px;
+    background: linear-gradient(180deg, transparent, rgba(0,0,0,.2));
 }
 
-/* ============================================================
-   13. OFFICERS GRID
-   ============================================================ */
+/* 13. OFFICERS GRID */
 .officer-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
 .officer-card {
     padding: 28px 20px; text-align: center;
@@ -417,9 +476,7 @@ textarea:-webkit-autofill {
     padding: 4px 10px; border-radius: 99px;
 }
 
-/* ============================================================
-   14. MARQUEE TESTIMONI
-   ============================================================ */
+/* 14. MARQUEE TESTIMONI */
 .marquee {
     overflow: hidden; position: relative; padding: 6px 0;
     mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
@@ -441,9 +498,7 @@ textarea:-webkit-autofill {
 
 @keyframes marquee { to { transform: translateX(-50%); } }
 
-/* ============================================================
-   15. GALLERY MASONRY + LIGHTBOX
-   ============================================================ */
+/* 15. GALLERY MASONRY + LIGHTBOX */
 .masonry { columns: 3; column-gap: 18px; }
 .masonry-item {
     break-inside: avoid; margin: 0 0 18px;
@@ -464,14 +519,19 @@ textarea:-webkit-autofill {
 }
 .masonry-item:hover figcaption { opacity: 1; }
 
+/* LIGHTBOX: default display:none, hanya muncul saat .show */
 .lightbox {
     position: fixed; inset: 0; z-index: 120;
     background: rgba(4,8,20,.92); backdrop-filter: blur(10px);
-    display: grid; place-items: center; padding: 40px;
-    opacity: 0; visibility: hidden; transition: .3s;
+    display: none;
+    place-items: center; padding: 40px;
 }
-.lightbox:not(.show) { display: none; }
-.lightbox.show { opacity: 1; visibility: visible; }
+.lightbox.show {
+    display: grid;
+    animation: lb-fade .3s ease;
+}
+@keyframes lb-fade { from { opacity: 0; } to { opacity: 1; } }
+
 .lightbox img {
     max-width: min(1000px, 92vw); max-height: 78vh;
     border-radius: 18px; box-shadow: 0 40px 90px rgba(0,0,0,.6);
@@ -491,12 +551,10 @@ textarea:-webkit-autofill {
 
 @keyframes zoom-in {
     from { transform: scale(.9); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
+    to   { transform: scale(1); opacity: 1; }
 }
 
-/* ============================================================
-   16. SENSUS PUBLIC
-   ============================================================ */
+/* 16. SENSUS PUBLIC */
 .census-band {
     display: flex; align-items: center; justify-content: space-between; gap: 30px;
     padding: 46px; position: relative; overflow: hidden;
@@ -508,9 +566,7 @@ textarea:-webkit-autofill {
 .census-copy p { color: var(--txt-1); font-size: 14px; max-width: 56ch; }
 .sensus-wrap { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; padding: 0 24px 90px; }
 
-/* ============================================================
-   17. PUBLIC ARTIKEL LISTING + DETAIL
-   ============================================================ */
+/* 17. PUBLIC ARTIKEL LISTING + DETAIL */
 .cat-chips { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin: 0 0 44px; position: relative; z-index: 1; }
 .chip {
     padding: 8px 16px; border-radius: 99px;
@@ -583,9 +639,7 @@ textarea:-webkit-autofill {
 .related-block h3 { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 800; margin-bottom: 18px; }
 .related-block h3 i { color: var(--acc); }
 
-/* ============================================================
-   18. PUBLIC BUTTONS (shared utility)
-   ============================================================ */
+/* 18. PUBLIC BUTTONS */
 .btn {
     position: relative; overflow: hidden;
     border: 0; cursor: pointer; font: inherit;
@@ -625,9 +679,7 @@ textarea:-webkit-autofill {
     border-radius: 50%; animation: spin .7s linear infinite;
 }
 
-/* ============================================================
-   19. PUBLIC FORMS (for sensus page)
-   ============================================================ */
+/* 19. PUBLIC FORMS */
 .field { display: block; margin-bottom: 14px; }
 .field:last-child { margin-bottom: 0; }
 .field-label {
@@ -654,15 +706,11 @@ textarea { resize: vertical; min-height: 60px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .field-row .field { margin-bottom: 0; }
 
-/* ============================================================
-   20. SCROLL REVEAL
-   ============================================================ */
+/* 20. SCROLL REVEAL */
 .reveal { opacity: 0; transform: translateY(28px); transition: opacity .7s var(--ease-smooth), transform .7s var(--ease-smooth); }
 .reveal.revealed { opacity: 1; transform: none; }
 
-/* ============================================================
-   21. KEYFRAMES
-   ============================================================ */
+/* 21. KEYFRAMES */
 @keyframes fade-up {
     from { opacity: 0; transform: translateY(18px); }
     to   { opacity: 1; transform: translateY(0); }
@@ -670,29 +718,25 @@ textarea { resize: vertical; min-height: 60px; }
 @keyframes ripple { to { transform: scale(4); opacity: 0; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ============================================================
-   22. RESPONSIVE
-   ============================================================ */
+/* 22. RESPONSIVE (v7.0) */
 @media (max-width: 980px) {
     .hero-inner { grid-template-columns: 1fr; gap: 40px; }
     .hero-visual { height: 360px; }
+    .pub-nav-inner { flex-wrap: wrap; gap: 12px; }
     .pub-nav-links {
-        position: fixed; top: 70px; left: 16px; right: 16px;
-        flex-direction: column; gap: 4px;
-        background: rgba(10,15,31,.96); backdrop-filter: blur(20px);
-        border: 1px solid var(--glass-brd); border-radius: 16px;
-        padding: 12px; margin: 0;
-        opacity: 0; visibility: hidden; transform: translateY(-12px);
-        transition: .3s;
+        flex-direction: row; flex-wrap: wrap;
+        gap: 2px; margin-left: auto;
     }
-    .pub-nav-links.open { opacity: 1; visibility: visible; transform: none; }
-    .pub-burger { display: grid; }
+    .pub-link {
+        padding: 8px 10px; font-size: 12.5px;
+    }
     .stats-band { grid-template-columns: 1fr 1fr; gap: 22px 0; }
     .band-sep { display: none; }
     .about-grid { grid-template-columns: 1fr; }
     .pub-events { grid-template-columns: 1fr; }
     .feat-grid { grid-template-columns: 1fr 1fr; }
-    .footer-grid { grid-template-columns: 1fr; gap: 30px; }
+    .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+    .footer-brand::after { display: none; }
     .officer-grid { grid-template-columns: 1fr 1fr; }
     .masonry { columns: 2; }
     .census-band { flex-direction: column; align-items: flex-start; }
@@ -711,10 +755,4 @@ textarea { resize: vertical; min-height: 60px; }
     .float-card-2 { right: -6px; }
     .officer-grid { grid-template-columns: 1fr; }
     .masonry { columns: 1; }
-}
-/* ---- Sembunyikan tombol burger/close di layar desktop ---- */
-@media (min-width: 901px) {
-    .pub-burger {
-        display: none !important;
-    }
 }
