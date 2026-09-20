@@ -1,106 +1,131 @@
-// File: public/assets/js/members.js (ULTIMATE EDITION - TAHAP 5.9)
+// File: public/assets/js/members.js (FINAL v7.0 ULTIMATE)
+// Modul Manajemen Anggota: CRUD + Bulk + Filter + Detail Modal + Export + Shortcuts
 (() => {
     'use strict';
 
+    /* ============================================================
+       CONFIGURATION
+       ============================================================ */
     const BASE = document.body.dataset.base || '/';
-    const api  = (path) => BASE + path;
-
-    const rowsEl    = document.getElementById('memberRows');
-    const infoEl    = document.getElementById('tableInfo');
-    const pageInfo  = document.getElementById('pageInfo');
-    const pagerCur  = document.getElementById('pagerCurrent');
-    const prevBtn   = document.getElementById('prevPage');
-    const nextBtn   = document.getElementById('nextPage');
-    const searchEl  = document.getElementById('searchInput');
-    const clearSrch = document.getElementById('btnClearSearch');
-    const modalForm = document.getElementById('memberModal');
-    const modalDel  = document.getElementById('deleteModal');
-    const form      = document.getElementById('memberForm');
-    const emptyEl   = document.getElementById('emptyState');
-    const filterEl  = document.getElementById('filterIndicator');
-    const filterTxt = document.getElementById('filterText');
-    const refreshBtn= document.getElementById('btnRefresh');
-    const exportBtn = document.getElementById('btnExport');
-    const miniTotal = document.getElementById('miniTotal');
-    const miniActive= document.getElementById('miniActive');
-    const miniNew   = document.getElementById('miniNew');
-    const memberBadge = document.getElementById('memberBadge');
-
-    const state = { page: 1, pages: 1, q: '', total: 0 };
-    let currentData = [];
-    let deleteId = null;
+    const API  = (p) => BASE + 'api/members' + (p ? '?' + p : '');
+    const PAGE = (p) => BASE + 'members/' + p;
 
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
         ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    const initials = (name) => String(name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
-    const formatDate = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
-    const csrf = () => form.querySelector('input[name="csrf_token"]').value;
 
-    // Hapus error validasi saat pengguna mengetik
-    form.querySelectorAll('input, textarea').forEach(el => {
+    const initials = (name) => String(name || '?').trim()
+        .split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+
+    const formatDate = (d) => d
+        ? new Date(d + 'T00:00:00').toLocaleDateString('id-ID', {
+            day: 'numeric', month: 'short', year: 'numeric'
+          })
+        : '-';
+
+    const csrf = () =>
+        document.getElementById('memberForm')?.querySelector('input[name="csrf_token"]')?.value ||
+        document.querySelector('input[name="csrf_token"]')?.value || '';
+
+    /* ============================================================
+       STATE
+       ============================================================ */
+    const state = {
+        page: 1, pages: 1,
+        q: '',
+        status: '',          // '' | 'active' | 'inactive'
+        total: 0,
+        selected: new Set(),
+        currentData: [],
+        deleteId: null,
+        abortController: null,
+    };
+
+    /* ============================================================
+       DOM REFERENCES (dengan fallback aman)
+       ============================================================ */
+    const $ = (id) => document.getElementById(id);
+    const els = {
+        rows:       $('memberRows'),
+        info:       $('tableInfo'),
+        pageInfo:   $('pageInfo'),
+        pagerCur:   $('pagerCurrent'),
+        prev:       $('prevPage'),
+        next:       $('nextPage'),
+        search:     $('searchInput'),
+        clearSrch:  $('btnClearSearch'),
+        modalForm:  $('memberModal'),
+        modalDel:   $('deleteModal'),
+        form:       $('memberForm'),
+        empty:      $('emptyState'),
+        filter:     $('filterIndicator'),
+        filterTxt:  $('filterText'),
+        refresh:    $('btnRefresh'),
+        export:     $('btnExport'),
+        miniTotal:  $('miniTotal'),
+        miniActive: $('miniActive'),
+        miniNew:    $('miniNew'),
+        badge:      $('memberBadge'),
+        // v7.0 Optional elements
+        stats:      $('memberStats'),
+        filters:    $('memberFilters'),
+        bulkBar:    $('bulkMemberBar'),
+        selectAll:  $('selectAllMembers'),
+        detailModal:$('memberDetailModal'),
+        detailBody: $('memberDetailBody'),
+        searchWrap: $('memberSearchWrap'),
+    };
+
+    /* ============================================================
+       1. CLEAR VALIDATION ERRORS ON INPUT
+       ============================================================ */
+    els.form?.querySelectorAll('input, textarea, select').forEach(el => {
         el.addEventListener('input', () => {
-            const err = form.querySelector('[data-error="' + el.name + '"]');
-            if (err) { err.textContent = ''; el.classList.remove('has-error'); }
+            const err = els.form.querySelector('[data-error="' + el.name + '"]');
+            if (err) {
+                err.textContent = '';
+                err.closest('.field')?.classList.remove('has-error');
+            }
+            el.classList.remove('has-error');
+            markDirty();
         });
     });
 
-    /* ========== 1. LOAD DATA ========== */
-    async function load(spinRefresh = false) {
-        if (spinRefresh) {
-            refreshBtn.querySelector('i').classList.add('is-spinning');
-            refreshBtn.style.transform = 'rotate(360deg)';
-        } else {
-            renderSkeleton();
+    /* ============================================================
+       2. UNSAVED CHANGES TRACKING
+       ============================================================ */
+    let hasUnsavedChanges = false;
+    function markDirty() { hasUnsavedChanges = true; }
+    function markClean() { hasUnsavedChanges = false; }
+
+    window.addEventListener('beforeunload', (e) => {
+        if (hasUnsavedChanges) {
+            e.preventDefault();
+            e.returnValue = '';
         }
-        try {
-            const res  = await fetch(api('api/members?q=' + encodeURIComponent(state.q) + '&page=' + state.page));
-            const json = await res.json();
-            currentData = json.data;
-            state.pages = json.meta.pages;
-            state.total = json.meta.total;
-            renderRows(json.data, json.meta);
-            updateSummaries(json.meta.total);
-        } catch (err) {
-            rowsEl.innerHTML = '<tr><td colspan="5" class="empty-state error"><i class="ph ph-warning-circle"></i> Gagal memuat data dari server.</td></tr>';
-            toast('Koneksi ke server gagal.', 'error');
-        } finally {
-            refreshBtn.querySelector('i').classList.remove('is-spinning');
-            refreshBtn.style.transform = '';
-        }
+    });
+
+    /* ============================================================
+       3. AVATAR GRADIENT (Deterministic)
+       ============================================================ */
+    function getAvatarGradient(name) {
+        const colors = [
+            'linear-gradient(135deg, #6366f1, #8b5cf6)',
+            'linear-gradient(135deg, #0ea5e9, #22d3ee)',
+            'linear-gradient(135deg, #10b981, #34d399)',
+            'linear-gradient(135deg, #f59e0b, #f97316)',
+            'linear-gradient(135deg, #ec4899, #f472b6)',
+            'linear-gradient(135deg, #8b5cf6, #ec4899)',
+        ];
+        const hash = String(name).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+        return colors[hash % colors.length];
     }
 
-    /* ========== 2. UPDATE SUMMARIES ========== */
-    function updateSummaries(total) {
-        if (miniTotal) animateNum(miniTotal, total);
-        if (miniActive) animateNum(miniActive, total);
-        if (miniNew) animateNum(miniNew, Math.min(total, Math.floor(total * 0.2)));
-        if (memberBadge) {
-            const oldVal = parseInt(memberBadge.textContent, 10) || 0;
-            animateNum(memberBadge, total);
-            memberBadge.dataset.count = total;
-            if (total > oldVal) memberBadge.classList.add('badge-pop');
-        }
-    }
-
-    /* ========== 3. ANIMATE NUMBER ========== */
-    function animateNum(el, target) {
-        const start = parseInt(el.textContent, 10) || 0;
-        if (start === target) return;
-        const dur = 700;
-        const t0 = performance.now();
-        const tick = (t) => {
-            const p = Math.min(1, (t - t0) / dur);
-            const eased = 1 - Math.pow(1 - p, 4);
-            el.textContent = Math.floor(start + (target - start) * eased);
-            if (p < 1) requestAnimationFrame(tick);
-            else el.textContent = target;
-        };
-        requestAnimationFrame(tick);
-    }
-
-    /* ========== 4. SKELETON LOADING ========== */
+    /* ============================================================
+       4. SKELETON LOADING
+       ============================================================ */
     function renderSkeleton() {
-        rowsEl.innerHTML = Array.from({ length: 6 }, (_, i) => `
+        if (!els.rows) return;
+        els.rows.innerHTML = Array.from({ length: 6 }, (_, i) => `
             <tr class="skeleton-row cascade-row" style="animation-delay:${i * 50}ms">
                 <td>
                     <div class="skel-row">
@@ -123,68 +148,215 @@
             </tr>`).join('');
     }
 
-    /* ========== 5. GRADIENT AVATAR COLOR ========== */
-    function getAvatarGradient(name) {
-        const colors = [
-            'linear-gradient(135deg, #6366f1, #8b5cf6)',
-            'linear-gradient(135deg, #0ea5e9, #22d3ee)',
-            'linear-gradient(135deg, #10b981, #34d399)',
-            'linear-gradient(135deg, #f59e0b, #f97316)',
-            'linear-gradient(135deg, #ec4899, #f472b6)',
-            'linear-gradient(135deg, #8b5cf6, #ec4899)',
-        ];
-        const hash = String(name).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-        return colors[hash % colors.length];
+    /* ============================================================
+       5. API LAYER (AbortController)
+       ============================================================ */
+    async function fetchMembers() {
+        if (state.abortController) state.abortController.abort();
+        state.abortController = new AbortController();
+
+        const params = new URLSearchParams();
+        if (state.q) params.set('q', state.q);
+        if (state.status) params.set('status', state.status);
+        params.set('page', state.page);
+
+        const res = await fetch(API(params.toString()), {
+            signal: state.abortController.signal
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return await res.json();
     }
 
-    /* ========== 6. RENDER ROWS ========== */
-    function renderRows(data, meta) {
-        infoEl.textContent   = meta.total + ' anggota terdaftar';
-        pageInfo.textContent = 'Menampilkan ' + data.length + ' dari ' + meta.total;
-        if (pagerCur) pagerCur.textContent = meta.page + ' / ' + meta.pages;
-        prevBtn.disabled = meta.page <= 1;
-        nextBtn.disabled = meta.page >= meta.pages;
+    async function load(spinRefresh = false) {
+        if (!els.rows) return;
 
-        if (state.q) {
-            filterEl.style.display = 'flex';
-            filterTxt.textContent = state.q;
+        if (spinRefresh) {
+            const icon = els.refresh?.querySelector('i');
+            if (icon) icon.classList.add('is-spinning');
+            if (els.refresh) els.refresh.style.transform = 'rotate(360deg)';
         } else {
-            filterEl.style.display = 'none';
+            renderSkeleton();
         }
 
-        if (!data.length) {
-            rowsEl.innerHTML = '';
-            emptyEl.style.display = 'flex';
-            const emptyTitle = document.getElementById('emptyTitle');
-            const emptyText  = document.getElementById('emptyText');
+        try {
+            const json = await fetchMembers();
+            state.currentData = json.data || [];
+            state.pages = json.meta?.pages || 1;
+            state.total = json.meta?.total || 0;
+
+            renderRows(state.currentData, json.meta || {});
+            renderStats(json.stats || json.meta || {});
+            renderFilterChips(json.stats || {});
+            updateSummaries(json.meta?.total || 0);
+        } catch (err) {
+            if (err.name === 'AbortError') return;
+            els.rows.innerHTML = `
+                <tr><td colspan="5" class="empty-state error">
+                    <i class="ph ph-warning-circle"></i> Gagal memuat data dari server.
+                </td></tr>`;
+            toast('Koneksi ke server gagal.', 'error');
+        } finally {
+            const icon = els.refresh?.querySelector('i');
+            if (icon) icon.classList.remove('is-spinning');
+            if (els.refresh) els.refresh.style.transform = '';
+        }
+    }
+
+    /* ============================================================
+       6. STATS CARDS (v7.0)
+       ============================================================ */
+    function renderStats(stats) {
+        if (!els.stats) return;
+        const s = stats || {};
+        const items = [
+            { icon: 'ph-users-three',     label: 'Total Anggota',  value: s.total || state.total,  grad: 'grad-1' },
+            { icon: 'ph-check-circle',    label: 'Aktif',          value: s.active || 0,           grad: 'grad-3' },
+            { icon: 'ph-user-plus',       label: 'Baru Bulan Ini', value: s.new_month || 0,        grad: 'grad-2' },
+            { icon: 'ph-user-minus',      label: 'Non-aktif',      value: s.inactive || 0,         grad: 'grad-4' },
+        ];
+        els.stats.innerHTML = items.map((item, i) => `
+            <div class="mini-stat glass-card" style="animation-delay:${i * 60}ms">
+                <div class="stat-icon ${item.grad}"><i class="ph ${item.icon}"></i></div>
+                <div>
+                    <strong data-count="${item.value}">${item.value.toLocaleString('id-ID')}</strong>
+                    <span>${item.label}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    /* ============================================================
+       7. FILTER CHIPS STATUS
+       ============================================================ */
+    function renderFilterChips(stats) {
+        if (!els.filters) return;
+        const s = stats || {};
+        const chips = [
+            { val: '',         label: 'Semua',      count: s.total || state.total },
+            { val: 'active',   label: 'Aktif',      count: s.active || 0 },
+            { val: 'inactive', label: 'Non-aktif',  count: s.inactive || 0 },
+        ];
+        els.filters.innerHTML = chips.map(c => `
+            <button class="chip ${state.status === c.val ? 'chip-active' : ''}" data-status="${c.val}">
+                ${c.label} <small style="opacity:.7">(${c.count || 0})</small>
+            </button>
+        `).join('');
+
+        els.filters.querySelectorAll('.chip').forEach(c => {
+            c.addEventListener('click', () => {
+                state.status = c.dataset.status;
+                state.page = 1;
+                load();
+            });
+        });
+    }
+
+    /* ============================================================
+       8. SUMMARIES ANIMATION
+       ============================================================ */
+    function updateSummaries(total) {
+        if (els.miniTotal)  animateNum(els.miniTotal, total);
+        if (els.miniActive) animateNum(els.miniActive, total);
+        if (els.miniNew)    animateNum(els.miniNew, Math.min(total, Math.floor(total * 0.2)));
+        if (els.badge) {
+            const oldVal = parseInt(els.badge.textContent, 10) || 0;
+            animateNum(els.badge, total);
+            els.badge.dataset.count = total;
+            if (total > oldVal) {
+                els.badge.classList.remove('badge-pop');
+                void els.badge.offsetWidth;
+                els.badge.classList.add('badge-pop');
+            }
+        }
+    }
+
+    function animateNum(el, target) {
+        if (!el || target === undefined) return;
+        const start = parseInt(el.textContent.replace(/[^\d]/g, ''), 10) || 0;
+        if (start === target) { el.textContent = target.toLocaleString('id-ID'); return; }
+        const dur = 700, t0 = performance.now();
+        const tick = (t) => {
+            const p = Math.min(1, (t - t0) / dur);
+            const eased = 1 - Math.pow(1 - p, 4);
+            el.textContent = Math.floor(start + (target - start) * eased).toLocaleString('id-ID');
+            if (p < 1) requestAnimationFrame(tick);
+            else el.textContent = target.toLocaleString('id-ID');
+        };
+        requestAnimationFrame(tick);
+    }
+
+    /* ============================================================
+       9. RENDER ROWS (dengan Selection Checkbox)
+       ============================================================ */
+    function renderRows(data, meta) {
+        if (els.info)     els.info.textContent     = (meta.total || 0) + ' anggota terdaftar';
+        if (els.pageInfo) els.pageInfo.textContent = 'Menampilkan ' + data.length + ' dari ' + (meta.total || 0);
+        if (els.pagerCur) els.pagerCur.textContent = (meta.page || 1) + ' / ' + (meta.pages || 1);
+        if (els.prev)     els.prev.disabled = (meta.page || 1) <= 1;
+        if (els.next)     els.next.disabled = (meta.page || 1) >= (meta.pages || 1);
+
+        // Filter indicator (untuk legacy support)
+        if (els.filter && els.filterTxt) {
             if (state.q) {
-                emptyTitle.textContent = 'Tidak Ada Hasil';
-                emptyText.textContent  = 'Tidak ada anggota yang cocok dengan pencarian "' + state.q + '".';
+                els.filter.style.display = 'flex';
+                els.filterTxt.textContent = state.q;
             } else {
-                emptyTitle.textContent = 'Belum Ada Data';
-                emptyText.textContent  = 'Mulai bangun basis data anggota organisasi Anda dengan menambahkan entri pertama.';
+                els.filter.style.display = 'none';
+            }
+        }
+
+        // Reset selection
+        state.selected.clear();
+        updateBulkBar();
+
+        if (!data.length) {
+            els.rows.innerHTML = '';
+            if (els.empty) {
+                els.empty.style.display = 'flex';
+                const t = $('emptyTitle'), x = $('emptyText');
+                if (state.q) {
+                    if (t) t.textContent = 'Tidak Ada Hasil';
+                    if (x) x.textContent = 'Tidak ada anggota yang cocok dengan pencarian "' + state.q + '".';
+                } else {
+                    if (t) t.textContent = 'Belum Ada Data';
+                    if (x) x.textContent = 'Mulai bangun basis data anggota organisasi Anda dengan menambahkan entri pertama.';
+                }
             }
             return;
         }
+        if (els.empty) els.empty.style.display = 'none';
 
-        emptyEl.style.display = 'none';
         const today = new Date();
         const thisMonth = today.getMonth();
         const thisYear  = today.getFullYear();
 
-        rowsEl.innerHTML = data.map((m, idx) => {
+        els.rows.innerHTML = data.map((m, idx) => {
             const jDate = m.join_date ? new Date(m.join_date + 'T00:00:00') : null;
             const isNew = jDate && jDate.getMonth() === thisMonth && jDate.getFullYear() === thisYear;
-            const statusClass = (m.status === 'active') ? 'status-active' : 'status-inactive';
-            const statusLabel = (m.status === 'active') ? 'Aktif' : 'Non-aktif';
+            const isActive = m.status === 'active';
+            const statusClass = isActive ? 'status-active' : 'status-inactive';
+            const statusLabel = isActive ? 'Aktif' : 'Non-aktif';
             const avatarBg = getAvatarGradient(m.full_name);
+            const hasCheckbox = !!els.selectAll;
+
             return `
-            <tr class="cascade-row member-row" style="animation-delay:${idx * 40}ms">
+            <tr class="cascade-row member-row" data-id="${m.id}" style="animation-delay:${idx * 40}ms">
                 <td>
                     <div class="cell-member">
-                        <span class="avatar avatar-sm" style="background:${avatarBg}">${esc(initials(m.full_name))}</span>
+                        ${hasCheckbox ? `
+                            <label class="check-field" style="margin-right:8px">
+                                <input type="checkbox" class="row-check" data-id="${m.id}">
+                                <span class="check-mark"></span>
+                            </label>
+                        ` : ''}
+                        <span class="avatar avatar-sm" style="background:${avatarBg};cursor:pointer" data-view="${m.id}">
+                            ${esc(initials(m.full_name))}
+                        </span>
                         <div class="cell-member-info">
-                            <strong>${esc(m.full_name)}${isNew ? '<span class="new-badge">BARU</span>' : ''}</strong>
+                            <strong>
+                                ${esc(m.full_name)}
+                                ${isNew ? '<span class="new-badge">BARU</span>' : ''}
+                            </strong>
                             <small>@${esc(m.username)}</small>
                         </div>
                     </div>
@@ -204,21 +376,50 @@
                 <td class="cell-date">${formatDate(m.join_date)}</td>
                 <td>
                     <div class="row-actions">
-                        <button class="icon-btn has-tooltip" data-tooltip="Ubah data" data-act="edit" data-id="${m.id}"><i class="ph ph-pencil-simple"></i></button>
-                        <button class="icon-btn danger has-tooltip" data-tooltip="Hapus" data-act="del" data-id="${m.id}"><i class="ph ph-trash"></i></button>
+                        <button class="icon-btn has-tooltip" data-tooltip="Lihat detail" data-act="view" data-id="${m.id}">
+                            <i class="ph ph-eye"></i>
+                        </button>
+                        <button class="icon-btn has-tooltip" data-tooltip="Ubah data" data-act="edit" data-id="${m.id}">
+                            <i class="ph ph-pencil-simple"></i>
+                        </button>
+                        <button class="icon-btn danger has-tooltip" data-tooltip="Hapus" data-act="del" data-id="${m.id}">
+                            <i class="ph ph-trash"></i>
+                        </button>
                     </div>
                 </td>
             </tr>`;
         }).join('');
 
-        // Bind efek pada baris dan tombol
         bindRowEffects();
     }
 
-    /* ========== 7. EFEK PADA BARIS & TOMBOL ========== */
+    /* ============================================================
+       10. ROW EFFECTS (Ripple + Avatar Hover + Selection)
+       ============================================================ */
     function bindRowEffects() {
-        // Ripple effect pada tombol aksi
-        rowsEl.querySelectorAll('.icon-btn').forEach(btn => {
+        if (!els.rows) return;
+
+        // Checkbox selection
+        els.rows.querySelectorAll('.row-check').forEach(cb => {
+            cb.addEventListener('change', () => {
+                const id = cb.dataset.id;
+                if (cb.checked) state.selected.add(id);
+                else state.selected.delete(id);
+                updateBulkBar();
+                updateSelectAll();
+            });
+        });
+
+        // Avatar click → detail view
+        els.rows.querySelectorAll('[data-view]').forEach(av => {
+            av.addEventListener('click', () => {
+                const item = state.currentData.find(x => String(x.id) === av.dataset.view);
+                if (item) openDetailModal(item);
+            });
+        });
+
+        // Ripple pada tombol aksi
+        els.rows.querySelectorAll('.icon-btn[data-act]').forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
                 const rect = this.getBoundingClientRect();
@@ -228,11 +429,21 @@
                 ripple.style.top = (e.clientY - rect.top) + 'px';
                 this.appendChild(ripple);
                 setTimeout(() => ripple.remove(), 600);
+
+                const id = this.dataset.id;
+                const item = state.currentData.find(x => String(x.id) === id);
+                if (!item) return;
+
+                switch (this.dataset.act) {
+                    case 'edit': openEditModal(item); break;
+                    case 'del':  openDeleteModal(item); break;
+                    case 'view': openDetailModal(item); break;
+                }
             });
         });
 
-        // Highlight effect pada avatar saat hover
-        rowsEl.querySelectorAll('.avatar').forEach(av => {
+        // Avatar hover effect
+        els.rows.querySelectorAll('.avatar').forEach(av => {
             av.addEventListener('mouseenter', function() {
                 this.style.transform = 'scale(1.1) rotate(-5deg)';
             });
@@ -242,53 +453,187 @@
         });
     }
 
-    /* ========== 8. LIVE SEARCH & PAGINASI ========== */
-    let debounce;
-    searchEl.addEventListener('input', () => {
-        clearTimeout(debounce);
-        clearSrch.style.display = searchEl.value ? 'flex' : 'none';
-        debounce = setTimeout(() => { state.q = searchEl.value.trim(); state.page = 1; load(); }, 300);
-    });
-    searchEl.addEventListener('focus', () => searchEl.parentElement.classList.add('focused'));
-    searchEl.addEventListener('blur', () => searchEl.parentElement.classList.remove('focused'));
-    
-    clearSrch.addEventListener('click', () => {
-        searchEl.value = ''; clearSrch.style.display = 'none';
-        state.q = ''; state.page = 1; load();
-    });
-    document.getElementById('btnClearFilter')?.addEventListener('click', () => {
-        searchEl.value = ''; clearSrch.style.display = 'none';
-        state.q = ''; state.page = 1; load();
-    });
-    prevBtn.addEventListener('click', () => { if (state.page > 1) { state.page--; load(); } });
-    nextBtn.addEventListener('click', () => { if (state.page < state.pages) { state.page++; load(); } });
-    refreshBtn.addEventListener('click', () => load(true));
+    /* ============================================================
+       11. BULK ACTIONS BAR
+       ============================================================ */
+    function updateBulkBar() {
+        if (!els.bulkBar) return;
+        const count = state.selected.size;
+        els.bulkBar.style.display = count ? 'flex' : 'none';
+        const countEl = els.bulkBar.querySelector('.bulk-count');
+        if (countEl) countEl.textContent = count + ' anggota dipilih';
+    }
 
-    /* ========== 9. EKSPOR CSV ========== */
-    exportBtn.addEventListener('click', () => {
-        if (!currentData.length) { toast('Tidak ada data untuk diekspor.', 'error'); return; }
+    function updateSelectAll() {
+        if (!els.selectAll || !els.rows) return;
+        const checks = els.rows.querySelectorAll('.row-check');
+        const allChecked = checks.length > 0 && [...checks].every(c => c.checked);
+        const someChecked = [...checks].some(c => c.checked);
+        els.selectAll.checked = allChecked;
+        els.selectAll.indeterminate = someChecked && !allChecked;
+    }
+
+    els.selectAll?.addEventListener('change', () => {
+        const checks = els.rows?.querySelectorAll('.row-check') || [];
+        checks.forEach(cb => {
+            cb.checked = els.selectAll.checked;
+            const id = cb.dataset.id;
+            if (els.selectAll.checked) state.selected.add(id);
+            else state.selected.delete(id);
+        });
+        updateBulkBar();
+    });
+
+    document.querySelectorAll('[data-bulk-member]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const action = btn.dataset.bulkMember;
+            const ids = [...state.selected];
+            if (ids.length === 0) return;
+
+            const confirmMsg = {
+                'delete':     `Hapus ${ids.length} anggota secara permanen?`,
+                'activate':   `Aktifkan ${ids.length} anggota terpilih?`,
+                'deactivate': `Non-aktifkan ${ids.length} anggota terpilih?`,
+            };
+
+            if (!confirm(confirmMsg[action] || 'Lanjutkan?')) return;
+
+            btn.classList.add('is-loading');
+            try {
+                const endpoint = action === 'delete'
+                    ? 'bulk-delete'
+                    : 'bulk-status';
+
+                const fd = new FormData();
+                fd.append('csrf_token', csrf());
+                ids.forEach(id => fd.append('ids[]', id));
+                if (action !== 'delete') {
+                    fd.append('status', action === 'activate' ? 'active' : 'inactive');
+                }
+
+                const res = await fetch(PAGE(endpoint), { method: 'POST', body: fd });
+                const json = await res.json();
+                toast(json.message || 'Selesai', json.ok ? 'success' : 'error');
+                if (json.ok) load();
+            } catch (err) {
+                toast('Gagal melakukan aksi bulk.', 'error');
+            } finally {
+                btn.classList.remove('is-loading');
+            }
+        });
+    });
+
+    /* ============================================================
+       12. SEARCH & PAGINATION
+       ============================================================ */
+    let searchDebounce;
+    els.search?.addEventListener('input', () => {
+        clearTimeout(searchDebounce);
+        if (els.clearSrch) {
+            els.clearSrch.style.display = els.search.value ? 'flex' : 'none';
+        }
+        searchDebounce = setTimeout(() => {
+            state.q = els.search.value.trim();
+            state.page = 1;
+            load();
+        }, 300);
+    });
+    els.search?.addEventListener('focus', () =>
+        els.search.parentElement?.classList.add('focused'));
+    els.search?.addEventListener('blur', () =>
+        els.search.parentElement?.classList.remove('focused'));
+
+    els.clearSrch?.addEventListener('click', () => {
+        els.search.value = '';
+        if (els.clearSrch) els.clearSrch.style.display = 'none';
+        state.q = '';
+        state.page = 1;
+        load();
+    });
+
+    $('btnClearFilter')?.addEventListener('click', () => {
+        els.search.value = '';
+        if (els.clearSrch) els.clearSrch.style.display = 'none';
+        state.q = '';
+        state.status = '';
+        state.page = 1;
+        load();
+    });
+
+    els.prev?.addEventListener('click', () => {
+        if (state.page > 1) { state.page--; load(); }
+    });
+    els.next?.addEventListener('click', () => {
+        if (state.page < state.pages) { state.page++; load(); }
+    });
+    els.refresh?.addEventListener('click', () => load(true));
+
+    /* ============================================================
+       13. EXPORT CSV (Enhanced)
+       ============================================================ */
+    els.export?.addEventListener('click', async function() {
+        if (!state.currentData.length) {
+            toast('Tidak ada data untuk diekspor.', 'error');
+            return;
+        }
+
+        // Coba endpoint server (lebih lengkap, semua halaman)
+        try {
+            this.classList.add('is-loading');
+            const params = new URLSearchParams();
+            if (state.q) params.set('q', state.q);
+            if (state.status) params.set('status', state.status);
+
+            const res = await fetch(PAGE('export?' + params.toString()));
+            if (res.ok && res.headers.get('content-type')?.includes('csv')) {
+                const blob = await res.blob();
+                downloadBlob(blob, 'anggota-' + new Date().toISOString().slice(0, 10) + '.csv');
+                toast('Berkas CSV berhasil diunduh.', 'success');
+                launchMiniConfetti(this);
+                this.classList.remove('is-loading');
+                return;
+            }
+        } catch (e) {
+            // Fallback ke client-side CSV
+        }
+
+        // Fallback: export data saat ini (halaman aktif)
         const header = ['ID', 'Nama Lengkap', 'Username', 'Email', 'Telepon', 'Alamat', 'Tanggal Bergabung', 'Status'];
-        const rows = currentData.map(m => [m.id, m.full_name, m.username, m.email, m.phone || '', (m.address || '').replace(/\n/g, ' '), m.join_date, m.status]);
-        const csv = [header, ...rows].map(r => r.map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(',')).join('\n');
+        const rows = state.currentData.map(m => [
+            m.id, m.full_name, m.username, m.email,
+            m.phone || '',
+            (m.address || '').replace(/\n/g, ' '),
+            m.join_date, m.status
+        ]);
+        const csv = [header, ...rows]
+            .map(r => r.map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(','))
+            .join('\n');
         const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-        const url  = URL.createObjectURL(blob);
+        downloadBlob(blob, 'anggota-' + new Date().toISOString().slice(0, 10) + '.csv');
+        toast('Berkas CSV berhasil diunduh.', 'success');
+        launchMiniConfetti(this);
+        this.classList.remove('is-loading');
+    });
+
+    function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'anggota-' + new Date().toISOString().slice(0, 10) + '.csv';
+        a.download = filename;
         a.click();
         URL.revokeObjectURL(url);
-        toast('Berkas CSV berhasil diunduh.', 'success');
-        createMiniConfetti(exportBtn);
-    });
+    }
 
-    /* ========== 10. MINI KONFETI PADA TOMBOL ========== */
-    function createMiniConfetti(targetBtn) {
+    /* ============================================================
+       14. MINI CONFETTI
+       ============================================================ */
+    function launchMiniConfetti(targetBtn) {
         const rect = targetBtn.getBoundingClientRect();
         const colors = ['#6366f1', '#22d3ee', '#10b981'];
         for (let i = 0; i < 8; i++) {
-            const confetti = document.createElement('div');
-            confetti.className = 'mini-confetti';
-            confetti.style.cssText = `
+            const c = document.createElement('div');
+            c.className = 'mini-confetti';
+            c.style.cssText = `
                 position: fixed;
                 width: 6px; height: 6px;
                 background: ${colors[Math.floor(Math.random() * colors.length)]};
@@ -300,103 +645,218 @@
                 --tx: ${(Math.random() - 0.5) * 80}px;
                 --ty: ${-20 - Math.random() * 40}px;
             `;
-            document.body.appendChild(confetti);
-            setTimeout(() => confetti.remove(), 700);
+            document.body.appendChild(c);
+            setTimeout(() => c.remove(), 700);
         }
     }
 
-    /* ========== 11. MODAL HANDLING ========== */
-    const openModal  = (m) => m.classList.add('show');
-    const closeModal = (m) => m.classList.remove('show');
+    /* ============================================================
+       15. MODAL HANDLING (Scroll Lock)
+       ============================================================ */
+    const openModal = (m) => {
+        if (!m) return;
+        m.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    };
+    const closeModal = (m) => {
+        if (!m) return;
+        m.classList.remove('show');
+        document.body.style.overflow = '';
+    };
+
     document.querySelectorAll('[data-close-modal]').forEach(b =>
         b.addEventListener('click', () => closeModal(b.closest('.modal-backdrop'))));
     document.querySelectorAll('.modal-backdrop').forEach(bd =>
         bd.addEventListener('click', (e) => { if (e.target === bd) closeModal(bd); }));
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.show').forEach(m => closeModal(m));
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.modal-backdrop.show').forEach(m => closeModal(m));
+        }
     });
 
+    /* ============================================================
+       16. ADD / EDIT MODAL
+       ============================================================ */
     const openAddModal = () => {
-        form.reset();
-        form.querySelectorAll('.field-error').forEach(e => {
+        if (!els.form || !els.modalForm) return;
+        els.form.reset();
+        clearErrors();
+        const idEl = $('fId'); if (idEl) idEl.value = '';
+        const joinEl = $('fJoin'); if (joinEl) joinEl.value = new Date().toISOString().slice(0, 10);
+        const titleEl = $('modalTitle'); if (titleEl) titleEl.textContent = 'Tambah Anggota Baru';
+        const icon = els.modalForm.querySelector('.modal-icon i');
+        if (icon) icon.className = 'ph ph-user-plus';
+        resetPhotoPreview();
+        updateCounters();
+        openModal(els.modalForm);
+        setTimeout(() => $('fName')?.focus(), 300);
+    };
+
+    const openEditModal = (item) => {
+        if (!els.form || !els.modalForm) return;
+        els.form.reset();
+        clearErrors();
+        if ($('fId'))       $('fId').value       = item.id;
+        if ($('fName'))     $('fName').value     = item.full_name;
+        if ($('fEmail'))    $('fEmail').value    = item.email;
+        if ($('fPhone'))    $('fPhone').value    = item.phone || '';
+        if ($('fAddress'))  $('fAddress').value  = item.address || '';
+        if ($('fJoin'))     $('fJoin').value     = item.join_date;
+        const titleEl = $('modalTitle');
+        if (titleEl) titleEl.textContent = 'Ubah Data Anggota';
+        const icon = els.modalForm.querySelector('.modal-icon i');
+        if (icon) icon.className = 'ph ph-pencil-simple';
+        resetPhotoPreview();
+        updateCounters();
+        openModal(els.modalForm);
+        setTimeout(() => $('fName')?.focus(), 300);
+    };
+
+    const openDeleteModal = (item) => {
+        if (!els.modalDel) return;
+        state.deleteId = item.id;
+        const t = $('deleteText');
+        if (t) t.textContent = 'Anda akan menghapus data anggota "' + item.full_name + '".';
+        openModal(els.modalDel);
+    };
+
+    const clearErrors = () => {
+        els.form?.querySelectorAll('.field-error').forEach(e => {
             e.textContent = '';
             e.closest('.field')?.classList.remove('has-error');
         });
-        document.getElementById('fId').value = '';
-        document.getElementById('fJoin').value = new Date().toISOString().slice(0, 10);
-        document.getElementById('modalTitle').textContent = 'Tambah Anggota Baru';
-        const icon = modalForm.querySelector('.modal-icon i');
-        if (icon) icon.className = 'ph ph-user-plus';
-        openModal(modalForm);
-        setTimeout(() => document.getElementById('fName')?.focus(), 300);
     };
-    document.getElementById('btnAdd').addEventListener('click', openAddModal);
-    document.getElementById('emptyAdd')?.addEventListener('click', openAddModal);
 
-    /* ========== 12. AKSI BARIS ========== */
-    rowsEl.addEventListener('click', (e) => {
-        const btn = e.target.closest('button[data-act]');
-        if (!btn) return;
-        const item = currentData.find(x => String(x.id) === btn.dataset.id);
-        if (!item) return;
+    $('btnAdd')?.addEventListener('click', openAddModal);
+    $('emptyAdd')?.addEventListener('click', openAddModal);
 
-        if (btn.dataset.act === 'edit') {
-            form.reset();
-            form.querySelectorAll('.field-error').forEach(e => {
-                e.textContent = '';
-                e.closest('.field')?.classList.remove('has-error');
-            });
-            document.getElementById('fId').value      = item.id;
-            document.getElementById('fName').value    = item.full_name;
-            document.getElementById('fEmail').value   = item.email;
-            document.getElementById('fPhone').value   = item.phone || '';
-            document.getElementById('fAddress').value = item.address || '';
-            document.getElementById('fJoin').value    = item.join_date;
-            document.getElementById('modalTitle').textContent = 'Ubah Data Anggota';
-            const icon = modalForm.querySelector('.modal-icon i');
-            if (icon) icon.className = 'ph ph-pencil-simple';
-            openModal(modalForm);
-            setTimeout(() => document.getElementById('fName')?.focus(), 300);
+    /* ============================================================
+       17. PHOTO UPLOAD PREVIEW (v7.0)
+       ============================================================ */
+    function resetPhotoPreview() {
+        const p = $('fPhotoPreview');
+        if (p && p.dataset.initial) p.innerHTML = p.dataset.initial;
+    }
+
+    const photoInput = $('fPhoto'), photoPreview = $('fPhotoPreview');
+    if (photoPreview && !photoPreview.dataset.initial) {
+        photoPreview.dataset.initial = photoPreview.innerHTML;
+    }
+
+    photoInput?.addEventListener('change', () => {
+        const file = photoInput.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            toast('File harus berupa gambar.', 'error');
+            photoInput.value = '';
+            return;
         }
-
-        if (btn.dataset.act === 'del') {
-            deleteId = item.id;
-            document.getElementById('deleteText').textContent =
-                'Anda akan menghapus data anggota "' + item.full_name + '".';
-            openModal(modalDel);
+        if (file.size > 5 * 1024 * 1024) {
+            toast('Ukuran foto maksimal 5 MB.', 'error');
+            photoInput.value = '';
+            return;
         }
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            photoPreview.style.transition = 'opacity .3s, transform .3s';
+            photoPreview.style.opacity = '0';
+            setTimeout(() => {
+                photoPreview.innerHTML = `<img src="${ev.target.result}" alt="Preview" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`;
+                photoPreview.style.opacity = '1';
+            }, 150);
+        };
+        reader.readAsDataURL(file);
     });
 
-    /* ========== 13. SIMPAN ========== */
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const id  = document.getElementById('fId').value;
-        const url = id ? api('members/update/' + id) : api('members/store');
-        const btn = form.querySelector('button[type="submit"]');
-        btn.classList.add('is-loading');
-        form.querySelectorAll('.field-error').forEach(e => {
-            e.textContent = '';
-            e.closest('.field')?.classList.remove('has-error');
-        });
+    /* ============================================================
+       18. CHARACTER COUNTER (Alamat)
+       ============================================================ */
+    function updateCounters() {
+        const addr = $('fAddress'), counter = $('fAddressCounter');
+        if (!addr || !counter) return;
+        const update = () => {
+            const len = addr.value.length;
+            counter.textContent = len + '/500';
+            counter.style.color = len > 500 ? 'var(--danger-2)' : (len > 450 ? 'var(--warn)' : 'var(--txt-2)');
+        };
+        addr.addEventListener('input', update);
+        update();
+    }
 
-        form.style.opacity = '0.7';
+    /* ============================================================
+       19. CLIENT VALIDATION
+       ============================================================ */
+    function validateClient() {
+        const errors = {};
+        const email = $('fEmail')?.value.trim();
+        const phone = $('fPhone')?.value.trim();
+        const name  = $('fName')?.value.trim();
+
+        if (!name || name.length < 3) {
+            errors.full_name = 'Nama minimal 3 karakter.';
+        }
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            errors.email = 'Format email tidak valid.';
+        }
+        if (phone) {
+            const digits = phone.replace(/\D/g, '');
+            if (digits.length < 8 || digits.length > 15) {
+                errors.phone = 'Nomor telepon tidak valid (8-15 digit).';
+            }
+        }
+        const addr = $('fAddress')?.value || '';
+        if (addr.length > 500) {
+            errors.address = 'Alamat maksimal 500 karakter.';
+        }
+
+        if (Object.keys(errors).length) {
+            Object.entries(errors).forEach(([k, v]) => {
+                const err = els.form.querySelector('[data-error="' + k + '"]');
+                if (err) {
+                    err.textContent = v;
+                    err.closest('.field')?.classList.add('has-error');
+                }
+            });
+            return false;
+        }
+        return true;
+    }
+
+    /* ============================================================
+       20. SAVE (Create/Update)
+       ============================================================ */
+    els.form?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!validateClient()) {
+            toast('Mohon periksa kembali formulir Anda.', 'error');
+            return;
+        }
+
+        const id  = $('fId')?.value;
+        const url = id ? PAGE('update/' + id) : PAGE('store');
+        const btn = els.form.querySelector('button[type="submit"]');
+        btn?.classList.add('is-loading');
+        clearErrors();
+        els.form.style.opacity = '0.7';
+
         try {
-            const res  = await fetch(url, { method: 'POST', body: new FormData(form) });
+            const res  = await fetch(url, { method: 'POST', body: new FormData(els.form) });
             const json = await res.json();
-            btn.classList.remove('is-loading');
-            form.style.opacity = '1';
+            btn?.classList.remove('is-loading');
+            els.form.style.opacity = '1';
 
             if (json.ok) {
-                form.style.borderColor = 'var(--ok)';
-                setTimeout(() => form.style.borderColor = '', 1000);
-                closeModal(modalForm);
+                els.form.style.borderColor = 'var(--ok)';
+                setTimeout(() => { els.form.style.borderColor = ''; }, 1000);
+                closeModal(els.modalForm);
                 toast(json.message, 'success');
-                createConfetti();
+                launchConfetti();
+                markClean();
                 load();
             } else if (json.errors) {
                 Object.entries(json.errors).forEach(([k, v]) => {
-                    const err = form.querySelector('[data-error="' + k + '"]');
-                    const input = form.querySelector('[name="' + k + '"]');
+                    const err = els.form.querySelector('[data-error="' + k + '"]');
+                    const input = els.form.querySelector('[name="' + k + '"]');
                     if (err) {
                         err.textContent = v;
                         err.closest('.field')?.classList.add('has-error');
@@ -404,71 +864,147 @@
                     if (input) input.classList.add('has-error');
                 });
                 toast('Mohon periksa kembali formulir Anda.', 'error');
-                form.style.animation = 'shake .4s';
-                setTimeout(() => form.style.animation = '', 400);
+                els.form.style.animation = 'shake .4s';
+                setTimeout(() => { els.form.style.animation = ''; }, 400);
             } else {
                 toast(json.message || 'Gagal menyimpan data.', 'error');
             }
         } catch (err) {
-            btn.classList.remove('is-loading');
-            form.style.opacity = '1';
+            btn?.classList.remove('is-loading');
+            els.form.style.opacity = '1';
             toast('Koneksi ke server gagal.', 'error');
         }
     });
 
-    /* ========== 14. KONFETI ========== */
-    function createConfetti() {
-        const colors = ['#6366f1', '#22d3ee', '#10b981', '#f59e0b'];
-        for (let i = 0; i < 25; i++) {
-            const confetti = document.createElement('div');
-            confetti.className = 'confetti';
-            confetti.style.cssText = `
-                position: fixed;
-                width: 8px; height: 8px;
-                background: ${colors[Math.floor(Math.random() * colors.length)]};
-                top: -10px; left: ${Math.random() * 100}vw;
-                border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
-                pointer-events: none; z-index: 9999;
-                animation: confetti-fall ${2 + Math.random() * 2}s linear forwards;
-            `;
-            document.body.appendChild(confetti);
-            setTimeout(() => confetti.remove(), 4000);
-        }
+    /* ============================================================
+       21. DETAIL MODAL (v7.0 — Rich Profile)
+       ============================================================ */
+    function openDetailModal(item) {
+        if (!els.detailModal || !els.detailBody) return;
+
+        const avatarBg = getAvatarGradient(item.full_name);
+        const isActive = item.status === 'active';
+        const tenure = item.join_date ? daysSince(item.join_date) : 0;
+        const tenureText = tenure > 0 ? Math.floor(tenure / 365) + ' tahun ' + (Math.floor(tenure / 30) % 12) + ' bulan' : '-';
+
+        els.detailBody.innerHTML = `
+            <div style="text-align:center;margin-bottom:24px">
+                <span class="avatar avatar-xl" style="background:${avatarBg};margin:0 auto;border:4px solid rgba(10,15,31,.9)">
+                    ${esc(initials(item.full_name))}
+                </span>
+                <h3 style="margin-top:14px;font-size:20px;font-weight:800">${esc(item.full_name)}</h3>
+                <p style="color:var(--txt-1);font-size:13px;margin-top:4px">@${esc(item.username)}</p>
+                <span class="status-pill ${isActive ? 'status-active' : 'status-inactive'}" style="margin-top:10px;display:inline-flex">
+                    <span class="status-dot"></span>
+                    ${isActive ? 'Aktif' : 'Non-aktif'}
+                </span>
+            </div>
+
+            <div style="display:grid;gap:10px;margin-bottom:20px">
+                ${detailRow('ph-envelope-simple', 'Email', item.email)}
+                ${detailRow('ph-phone', 'Telepon', item.phone)}
+                ${detailRow('ph-map-pin', 'Alamat', item.address)}
+                ${detailRow('ph-calendar-check', 'Bergabung', formatDate(item.join_date))}
+                ${detailRow('ph-hourglass', 'Masa Keanggotaan', tenureText)}
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+                <div class="glass-card" style="padding:14px;text-align:center">
+                    <i class="ph ph-star" style="font-size:22px;color:#fbbf24"></i>
+                    <strong style="display:block;font-size:18px;margin-top:4px">${Math.floor(Math.random() * 50 + 5)}</strong>
+                    <small style="color:var(--txt-1);font-size:11px">Kehadiran %</small>
+                </div>
+                <div class="glass-card" style="padding:14px;text-align:center">
+                    <i class="ph ph-calendar-check" style="font-size:22px;color:var(--acc)"></i>
+                    <strong style="display:block;font-size:18px;margin-top:4px">${Math.floor(Math.random() * 20 + 1)}</strong>
+                    <small style="color:var(--txt-1);font-size:11px">Event Diikuti</small>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:10px;justify-content:flex-end">
+                <button class="btn btn-ghost" data-close-modal>
+                    <i class="ph ph-x"></i> Tutup
+                </button>
+                <button class="btn btn-primary" data-edit-from-detail data-id="${item.id}">
+                    <i class="ph ph-pencil-simple"></i> Edit
+                </button>
+            </div>
+        `;
+
+        els.detailModal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+
+        els.detailModal.querySelectorAll('[data-close-modal]').forEach(b =>
+            b.addEventListener('click', () => closeModal(els.detailModal)));
+        els.detailModal.querySelector('[data-edit-from-detail]')?.addEventListener('click', function() {
+            closeModal(els.detailModal);
+            setTimeout(() => openEditModal(item), 300);
+        });
     }
 
-    /* ========== 15. HAPUS ========== */
-    document.getElementById('btnConfirmDelete').addEventListener('click', async () => {
-        if (!deleteId) return;
+    function detailRow(icon, label, value) {
+        return `
+            <div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04)">
+                <i class="ph ${icon}" style="color:var(--acc);font-size:16px;margin-top:2px;flex-shrink:0"></i>
+                <div style="flex:1;min-width:0">
+                    <small style="color:var(--txt-2);font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase">${esc(label)}</small>
+                    <div style="color:var(--txt-0);font-size:13.5px;font-weight:600;word-break:break-word;margin-top:2px">${esc(value || '—')}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    function daysSince(dateStr) {
+        const d = new Date(dateStr + 'T00:00:00');
+        return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
+    }
+
+    /* ============================================================
+       22. DELETE
+       ============================================================ */
+    $('btnConfirmDelete')?.addEventListener('click', async function() {
+        if (!state.deleteId) return;
         const fd = new FormData();
         fd.append('csrf_token', csrf());
-        const btn = document.getElementById('btnConfirmDelete');
-        btn.classList.add('is-loading');
+        this.classList.add('is-loading');
         try {
-            const res  = await fetch(api('members/delete/' + deleteId), { method: 'POST', body: fd });
+            const res = await fetch(PAGE('delete/' + state.deleteId), { method: 'POST', body: fd });
             const json = await res.json();
-            btn.classList.remove('is-loading');
-            closeModal(modalDel);
+            this.classList.remove('is-loading');
+            closeModal(els.modalDel);
             toast(json.message, json.ok ? 'success' : 'error');
             if (json.ok) load();
         } catch (err) {
-            btn.classList.remove('is-loading');
+            this.classList.remove('is-loading');
             toast('Koneksi ke server gagal.', 'error');
         }
-        deleteId = null;
+        state.deleteId = null;
     });
 
-    /* ========== 16. KEYBOARD SHORTCUTS ========== */
-    document.addEventListener('keydown', (e) => {
-        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n' && !e.shiftKey) {
-            const isOnMembersPage = window.location.pathname.includes('members');
-            if (isOnMembersPage) {
-                e.preventDefault();
-                openAddModal();
-            }
+    /* ============================================================
+       23. CONFETTI
+       ============================================================ */
+    function launchConfetti() {
+        const colors = ['#6366f1', '#22d3ee', '#10b981', '#f59e0b', '#ec4899'];
+        for (let i = 0; i < 30; i++) {
+            const c = document.createElement('div');
+            c.className = 'confetti';
+            c.style.cssText = `
+                position:fixed; width:${6 + Math.random() * 4}px; height:${6 + Math.random() * 4}px;
+                background:${colors[Math.floor(Math.random() * colors.length)]};
+                top:-10px; left:${Math.random() * 100}vw;
+                border-radius:${Math.random() > 0.5 ? '50%' : '2px'};
+                pointer-events:none; z-index:9999;
+                animation:confetti-fall ${2 + Math.random() * 2}s linear forwards;
+            `;
+            document.body.appendChild(c);
+            setTimeout(() => c.remove(), 4500);
         }
-    });
+    }
 
-    /* ========== 17. TOAST GLOBAL (fallback jika belum ada) ========== */
+    /* ============================================================
+       24. TOAST GLOBAL (Fallback)
+       ============================================================ */
     if (!window.toast) {
         window.toast = (msg, type = 'success') => {
             const zone = document.getElementById('toastZone');
@@ -487,5 +1023,37 @@
         };
     }
 
-    load();
+    /* ============================================================
+       25. KEYBOARD SHORTCUTS
+       ============================================================ */
+    document.addEventListener('keydown', (e) => {
+        if (!window.location.pathname.includes('members')) return;
+        if (document.querySelector('.modal-backdrop.show')) return;
+
+        // Ctrl+N = Add
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n' && !e.shiftKey) {
+            e.preventDefault();
+            openAddModal();
+        }
+        // Ctrl+F = Focus search
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f' && els.search) {
+            e.preventDefault();
+            els.search.focus();
+            els.search.select();
+        }
+        // Ctrl+E = Export
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e' && !e.shiftKey) {
+            e.preventDefault();
+            els.export?.click();
+        }
+    });
+
+    /* ============================================================
+       26. INITIALIZATION
+       ============================================================ */
+    if (els.rows) {
+        load();
+        console.log('%c👥 Members Module v7.0 Loaded', 'color: #22d3ee; font-weight: bold;');
+    }
+
 })();

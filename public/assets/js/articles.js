@@ -1,36 +1,80 @@
-// File: public/assets/js/articles.js (ULTIMATE EDITION - TAHAP 5.9)
+// File: public/assets/js/articles.js (FINAL v7.0 ULTIMATE)
+// Modul Manajemen Artikel: CRUD + Bulk + Filter + Export + Keyboard Shortcuts
 (() => {
     'use strict';
 
+    /* ============================================================
+       CONFIGURATION
+       ============================================================ */
     const BASE = document.body.dataset.base || '/';
-    const api  = (path) => BASE + path;
-
-    const rowsEl   = document.getElementById('articleRows');
-    const emptyEl  = document.getElementById('emptyArticles');
-    const infoEl   = document.getElementById('artInfo');
-    const pageInfo = document.getElementById('artPageInfo');
-    const pagerCur = document.getElementById('artPagerCur');
-    const prevBtn  = document.getElementById('artPrev');
-    const nextBtn  = document.getElementById('artNext');
-    const searchEl = document.getElementById('artSearch');
-    const refresh  = document.getElementById('btnArtRefresh');
-    const modal    = document.getElementById('articleModal');
-    const delModal = document.getElementById('articleDeleteModal');
-    const form     = document.getElementById('articleForm');
-
-    const state = { page: 1, pages: 1, q: '' };
-    let currentData = [];
-    let deleteId = null;
+    const API  = (path) => BASE + 'api/articles' + (path ? '?' + path : '');
+    const PAGE = (path) => BASE + 'articles/' + path;
 
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
-        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    const csrf = () => form.querySelector('input[name="csrf_token"]').value;
-    const catSlug = (c) => String(c || '').toLowerCase().replace(/\s+/g, '-');
-    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
+    );
 
-    /* ========== 1. SKELETON LOADING ENHANCED ========== */
-    function renderSkeleton() {
-        rowsEl.innerHTML = Array.from({ length: 5 }, (_, i) => `
+    const CAT_COLORS = {
+        'Artikel': 'cat-artikel', 'Berita': 'cat-berita',
+        'Edukasi': 'cat-edukasi', 'Podcast': 'cat-podcast',
+        'Hari Besar': 'cat-hari-besar'
+    };
+
+    const catSlug = (c) => {
+        const key = String(c || 'Artikel');
+        return CAT_COLORS[key] || 'cat-' + key.toLowerCase().replace(/\s+/g, '-');
+    };
+
+    const fmtDate = (d) => d
+        ? new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+        : '-';
+
+    /* ============================================================
+       STATE MANAGEMENT
+       ============================================================ */
+    const state = {
+        page: 1,
+        pages: 1,
+        q: '',
+        status: '',
+        category: '',
+        selected: new Set(),
+        currentData: [],
+        deleteId: null,
+        abortController: null,
+    };
+
+    /* ============================================================
+       DOM REFERENCES (dengan fallback)
+       ============================================================ */
+    const $ = (id) => document.getElementById(id);
+    const els = {
+        rows:     $('articleRows'),
+        empty:    $('emptyArticles'),
+        info:     $('artInfo'),
+        pageInfo: $('artPageInfo'),
+        pagerCur: $('artPagerCur'),
+        prev:     $('artPrev'),
+        next:     $('artNext'),
+        search:   $('artSearch'),
+        refresh:  $('btnArtRefresh'),
+        modal:    $('articleModal'),
+        delModal: $('articleDeleteModal'),
+        form:     $('articleForm'),
+        stats:    $('articleStats'),        // optional v7.0
+        filters:  $('articleFilters'),      // optional v7.0
+        bulkBar:  $('bulkActionBar'),       // optional v7.0
+        selectAll:$('selectAllArticles'),   // optional v7.0
+    };
+
+    const csrf = () => els.form?.querySelector('input[name="csrf_token"]')?.value || '';
+
+    /* ============================================================
+       1. SKELETON LOADING (Premium Shimmer)
+       ============================================================ */
+    const renderSkeleton = () => {
+        if (!els.rows) return;
+        els.rows.innerHTML = Array.from({ length: 5 }, (_, i) => `
             <tr class="cascade-row" style="animation-delay:${i * 50}ms">
                 <td>
                     <div class="skel-row">
@@ -46,86 +90,212 @@
                 <td><div class="skel" style="height:12px;width:85px"></div></td>
                 <td><div class="skel" style="height:30px;width:80px;margin-left:auto"></div></td>
             </tr>`).join('');
+    };
+
+    /* ============================================================
+       2. API LAYER (dengan AbortController)
+       ============================================================ */
+    async function fetchArticles() {
+        if (state.abortController) state.abortController.abort();
+        state.abortController = new AbortController();
+
+        const params = new URLSearchParams();
+        if (state.q) params.set('q', state.q);
+        if (state.status) params.set('status', state.status);
+        if (state.category) params.set('category', state.category);
+        params.set('page', state.page);
+
+        const res = await fetch(API(params.toString()), {
+            signal: state.abortController.signal
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return await res.json();
     }
 
-    /* ========== 2. LOAD DATA ========== */
-    async function load(spin = false) {
+    async function loadArticles(spin = false) {
+        if (!els.rows) return;
+
         if (spin) {
-            refresh.querySelector('i').classList.add('is-spinning');
-            refresh.style.transform = 'rotate(360deg)';
+            const icon = els.refresh?.querySelector('i');
+            if (icon) icon.classList.add('is-spinning');
         } else {
             renderSkeleton();
         }
+
         try {
-            const res  = await fetch(api('api/articles?q=' + encodeURIComponent(state.q) + '&page=' + state.page));
-            const json = await res.json();
-            currentData = json.data;
-            state.pages = json.meta.pages;
-            render(json.data, json.meta);
-        } catch (e) {
-            rowsEl.innerHTML = '<tr><td colspan="5" class="empty-state error">Gagal memuat data artikel.</td></tr>';
+            const json = await fetchArticles();
+            state.currentData = json.data || [];
+            state.pages = json.meta?.pages || 1;
+
+            renderTable(state.currentData, json.meta || {});
+            renderStats(json.stats || {});
+            renderCategoryFilters(json.categoryCounts || {});
+        } catch (err) {
+            if (err.name === 'AbortError') return;
+            els.rows.innerHTML = `
+                <tr><td colspan="5" class="empty-state error">
+                    <i class="ph ph-warning-circle"></i>
+                    Gagal memuat data artikel.
+                </td></tr>`;
             toast('Koneksi ke server gagal.', 'error');
         } finally {
-            refresh.querySelector('i').classList.remove('is-spinning');
-            refresh.style.transform = '';
+            const icon = els.refresh?.querySelector('i');
+            if (icon) icon.classList.remove('is-spinning');
         }
     }
 
-    /* ========== 3. RENDER TABLE ========== */
-    function render(data, meta) {
-        infoEl.textContent   = meta.total + ' artikel';
-        pageInfo.textContent = 'Menampilkan ' + data.length + ' dari ' + meta.total;
-        pagerCur.textContent = meta.page + ' / ' + meta.pages;
-        prevBtn.disabled = meta.page <= 1;
-        nextBtn.disabled = meta.page >= meta.pages;
+    /* ============================================================
+       3. STATS MINI CARDS (v7.0)
+       ============================================================ */
+    function renderStats(stats) {
+        if (!els.stats) return;
+        const items = [
+            { icon: 'ph-newspaper', label: 'Total', value: stats.total || 0, grad: 'grad-1' },
+            { icon: 'ph-check-circle', label: 'Terbit', value: stats.published || 0, grad: 'grad-3' },
+            { icon: 'ph-note-pencil', label: 'Draft', value: stats.draft || 0, grad: 'grad-4' },
+            { icon: 'ph-eye', label: 'Total Views', value: stats.total_views || 0, grad: 'grad-2' },
+        ];
+        els.stats.innerHTML = items.map((s, i) => `
+            <div class="mini-stat glass-card" style="animation-delay:${i * 60}ms">
+                <div class="stat-icon ${s.grad}"><i class="ph ${s.icon}"></i></div>
+                <div>
+                    <strong data-count="${s.value}">${s.value.toLocaleString('id-ID')}</strong>
+                    <span>${s.label}</span>
+                </div>
+            </div>
+        `).join('');
+    }
 
-        if (!data.length) {
-            rowsEl.innerHTML = '';
-            emptyEl.style.display = 'flex';
+    /* ============================================================
+       4. CATEGORY FILTER CHIPS (v7.0)
+       ============================================================ */
+    function renderCategoryFilters(counts) {
+        if (!els.filters) return;
+        const cats = Object.entries(counts || {});
+        if (cats.length === 0) {
+            els.filters.style.display = 'none';
             return;
         }
-        emptyEl.style.display = 'none';
+        els.filters.style.display = 'flex';
+        els.filters.innerHTML = `
+            <button class="chip ${!state.category ? 'chip-active' : ''}" data-cat="">
+                Semua <small style="opacity:.7">(${cats.reduce((s, [, c]) => s + c, 0)})</small>
+            </button>
+        ` + cats.map(([cat, count]) => `
+            <button class="chip ${state.category === cat ? 'chip-active' : ''}" data-cat="${esc(cat)}">
+                ${esc(cat)} <small style="opacity:.7">(${count})</small>
+            </button>
+        `).join('');
 
-        rowsEl.innerHTML = data.map((a, i) => {
+        els.filters.querySelectorAll('.chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                state.category = chip.dataset.cat;
+                state.page = 1;
+                loadArticles();
+            });
+        });
+    }
+
+    /* ============================================================
+       5. TABLE RENDERING (dengan Selection)
+       ============================================================ */
+    function renderTable(data, meta) {
+        if (els.info) els.info.textContent = (meta.total || 0) + ' artikel';
+        if (els.pageInfo) els.pageInfo.textContent =
+            'Menampilkan ' + data.length + ' dari ' + (meta.total || 0);
+        if (els.pagerCur) els.pagerCur.textContent = (meta.page || 1) + ' / ' + (meta.pages || 1);
+        if (els.prev) els.prev.disabled = (meta.page || 1) <= 1;
+        if (els.next) els.next.disabled = (meta.page || 1) >= (meta.pages || 1);
+
+        // Reset selection
+        state.selected.clear();
+        updateBulkBar();
+
+        if (!data.length) {
+            if (els.rows) els.rows.innerHTML = '';
+            if (els.empty) els.empty.style.display = 'flex';
+            return;
+        }
+        if (els.empty) els.empty.style.display = 'none';
+
+        els.rows.innerHTML = data.map((a, i) => {
             const initial = (a.title || '?').charAt(0).toUpperCase();
+            const catClass = catSlug(a.category);
+            const statusClass = a.status === 'draft' ? 'status-inactive' : 'status-active';
+            const statusLabel = a.status === 'draft' ? 'Draft' : 'Terbit';
+            const checked = state.selected.has(String(a.id)) ? 'checked' : '';
+
             return `
-            <tr class="cascade-row" style="animation-delay:${i * 40}ms">
+            <tr class="cascade-row member-row" data-id="${a.id}" style="animation-delay:${i * 40}ms">
                 <td>
                     <div class="cell-member">
-                        <div class="cat-avatar cat-${catSlug(a.category)}">${initial}</div>
+                        ${els.selectAll ? `
+                            <label class="check-field" style="margin-right:8px">
+                                <input type="checkbox" class="row-check" data-id="${a.id}" ${checked}>
+                                <span class="check-mark"></span>
+                            </label>
+                        ` : ''}
+                        <div class="cat-avatar ${catClass}">${initial}</div>
                         <div class="cell-member-info">
                             <strong>${esc(a.title)}</strong>
-                            <small>
-                                ${esc((a.excerpt || '').slice(0, 70))}${(a.excerpt || '').length > 70 ? '…' : ''}
-                            </small>
+                            <small>${esc((a.excerpt || '').slice(0, 70))}${(a.excerpt || '').length > 70 ? '…' : ''}</small>
                         </div>
                     </div>
                 </td>
-                <td><span class="cat-badge cat-${catSlug(a.category)}">${esc(a.category)}</span></td>
+                <td><span class="cat-badge ${catClass}">${esc(a.category || '-')}</span></td>
                 <td>
                     <span class="author-chip">
                         <i class="ph ph-user-circle"></i>
                         @${esc(a.author_name || 'sistem')}
                     </span>
                 </td>
+                <td>
+                    <span class="status-pill ${statusClass}">
+                        <span class="status-dot"></span>
+                        ${statusLabel}
+                    </span>
+                </td>
                 <td class="cell-date">${fmtDate(a.created_at)}</td>
                 <td>
                     <div class="row-actions">
-                        <button class="icon-btn has-tooltip" data-tooltip="Sunting artikel" data-act="edit" data-id="${a.id}"><i class="ph ph-pencil-simple"></i></button>
-                        <button class="icon-btn danger has-tooltip" data-tooltip="Hapus artikel" data-act="del" data-id="${a.id}"><i class="ph ph-trash"></i></button>
+                        <button class="icon-btn has-tooltip success-btn" data-tooltip="Lihat di situs" data-act="view" data-id="${a.id}">
+                            <i class="ph ph-eye"></i>
+                        </button>
+                        <button class="icon-btn has-tooltip" data-tooltip="Sunting" data-act="edit" data-id="${a.id}">
+                            <i class="ph ph-pencil-simple"></i>
+                        </button>
+                        <button class="icon-btn danger has-tooltip" data-tooltip="Hapus" data-act="del" data-id="${a.id}">
+                            <i class="ph ph-trash"></i>
+                        </button>
                     </div>
                 </td>
             </tr>`;
         }).join('');
 
-        // Tambahkan ripple effect ke tombol aksi
-        bindRowRipples();
+        bindRowInteractions();
     }
 
-    /* ========== 4. RIPPLE PADA TOMBOL BARIS ========== */
-    function bindRowRipples() {
-        rowsEl.querySelectorAll('.icon-btn').forEach(btn => {
+    /* ============================================================
+       6. ROW INTERACTIONS (Ripple + Actions)
+       ============================================================ */
+    function bindRowInteractions() {
+        if (!els.rows) return;
+
+        // Checkbox selection
+        els.rows.querySelectorAll('.row-check').forEach(cb => {
+            cb.addEventListener('change', () => {
+                const id = cb.dataset.id;
+                if (cb.checked) state.selected.add(id);
+                else state.selected.delete(id);
+                updateBulkBar();
+                updateSelectAllState();
+            });
+        });
+
+        // Action buttons dengan ripple
+        els.rows.querySelectorAll('.icon-btn[data-act]').forEach(btn => {
             btn.addEventListener('click', function(e) {
+                // Ripple effect
                 const rect = this.getBoundingClientRect();
                 const ripple = document.createElement('span');
                 ripple.className = 'btn-ripple';
@@ -133,134 +303,309 @@
                 ripple.style.top = (e.clientY - rect.top) + 'px';
                 this.appendChild(ripple);
                 setTimeout(() => ripple.remove(), 600);
+
+                const id = this.dataset.id;
+                const item = state.currentData.find(x => String(x.id) === id);
+                if (!item) return;
+
+                switch (this.dataset.act) {
+                    case 'edit': openEditModal(item); break;
+                    case 'del':  openDeleteModal(item); break;
+                    case 'view': window.open(BASE + 'artikel/' + id, '_blank'); break;
+                }
             });
         });
     }
 
-    /* ========== 5. PENCARIAN & PAGINASI ========== */
-    let debounce;
-    searchEl.addEventListener('input', () => {
-        clearTimeout(debounce);
-        debounce = setTimeout(() => { state.q = searchEl.value.trim(); state.page = 1; load(); }, 300);
+    /* ============================================================
+       7. BULK ACTIONS BAR (v7.0)
+       ============================================================ */
+    function updateBulkBar() {
+        if (!els.bulkBar) return;
+        const count = state.selected.size;
+        if (count === 0) {
+            els.bulkBar.style.display = 'none';
+            return;
+        }
+        els.bulkBar.style.display = 'flex';
+        const countEl = els.bulkBar.querySelector('.bulk-count');
+        if (countEl) countEl.textContent = count + ' dipilih';
+    }
+
+    function updateSelectAllState() {
+        if (!els.selectAll || !els.rows) return;
+        const checks = els.rows.querySelectorAll('.row-check');
+        const allChecked = checks.length > 0 && [...checks].every(c => c.checked);
+        const someChecked = [...checks].some(c => c.checked);
+        els.selectAll.checked = allChecked;
+        els.selectAll.indeterminate = someChecked && !allChecked;
+    }
+
+    // Select All toggle
+    els.selectAll?.addEventListener('change', () => {
+        const checks = els.rows?.querySelectorAll('.row-check') || [];
+        checks.forEach(cb => {
+            cb.checked = els.selectAll.checked;
+            const id = cb.dataset.id;
+            if (els.selectAll.checked) state.selected.add(id);
+            else state.selected.delete(id);
+        });
+        updateBulkBar();
     });
-    searchEl.addEventListener('focus', () => searchEl.parentElement.classList.add('focused'));
-    searchEl.addEventListener('blur', () => searchEl.parentElement.classList.remove('focused'));
 
-    prevBtn.addEventListener('click', () => { if (state.page > 1) { state.page--; load(); } });
-    nextBtn.addEventListener('click', () => { if (state.page < state.pages) { state.page++; load(); } });
-    refresh.addEventListener('click', () => load(true));
+    // Bulk action buttons
+    document.querySelectorAll('[data-bulk]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const action = btn.dataset.bulk;
+            const ids = [...state.selected];
+            if (ids.length === 0) return;
 
-    /* ========== 6. MODAL HANDLING ========== */
-    const openModal  = (m) => m.classList.add('show');
-    const closeModal = (m) => m.classList.remove('show');
+            const confirmMsg = {
+                'delete': `Hapus ${ids.length} artikel terpilih secara permanen?`,
+                'publish': `Terbitkan ${ids.length} artikel terpilih?`,
+                'draft': `Simpan ${ids.length} artikel sebagai draft?`
+            };
+
+            if (!confirm(confirmMsg[action] || 'Lanjutkan?')) return;
+
+            btn.classList.add('is-loading');
+            try {
+                const endpoint = action === 'delete' ? 'bulk-delete' : 'bulk-status';
+                const body = action === 'delete'
+                    ? { ids: ids.map(Number) }
+                    : { ids: ids.map(Number), status: action === 'publish' ? 'published' : 'draft' };
+
+                const res = await fetch(BASE + 'articles/' + endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...body, csrf_token: csrf() })
+                });
+                const json = await res.json();
+                toast(json.message || 'Selesai', json.ok ? 'success' : 'error');
+                if (json.ok) loadArticles();
+            } catch (err) {
+                toast('Gagal melakukan aksi bulk', 'error');
+            } finally {
+                btn.classList.remove('is-loading');
+            }
+        });
+    });
+
+    /* ============================================================
+       8. SEARCH & PAGINATION (dengan Debounce)
+       ============================================================ */
+    let searchDebounce;
+    els.search?.addEventListener('input', () => {
+        clearTimeout(searchDebounce);
+        searchDebounce = setTimeout(() => {
+            state.q = els.search.value.trim();
+            state.page = 1;
+            loadArticles();
+        }, 300);
+    });
+
+    els.search?.addEventListener('focus', () =>
+        els.search.parentElement?.classList.add('focused'));
+    els.search?.addEventListener('blur', () =>
+        els.search.parentElement?.classList.remove('focused'));
+
+    els.prev?.addEventListener('click', () => {
+        if (state.page > 1) { state.page--; loadArticles(); }
+    });
+    els.next?.addEventListener('click', () => {
+        if (state.page < state.pages) { state.page++; loadArticles(); }
+    });
+    els.refresh?.addEventListener('click', () => loadArticles(true));
+
+    /* ============================================================
+       9. MODAL MANAGEMENT (dengan Keyboard Trap)
+       ============================================================ */
+    const openModal = (m) => {
+        if (!m) return;
+        m.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    };
+
+    const closeModal = (m) => {
+        if (!m) return;
+        m.classList.remove('show');
+        document.body.style.overflow = '';
+    };
+
+    // Close triggers
     document.querySelectorAll('[data-close-modal]').forEach(b =>
         b.addEventListener('click', () => closeModal(b.closest('.modal-backdrop'))));
     document.querySelectorAll('.modal-backdrop').forEach(bd =>
-        bd.addEventListener('click', (e) => { if (e.target === bd) closeModal(bd); }));
+        bd.addEventListener('click', (e) => {
+            if (e.target === bd) closeModal(bd);
+        }));
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.show').forEach(m => closeModal(m));
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.modal-backdrop.show').forEach(m => closeModal(m));
+        }
     });
 
-    const openAdd = () => {
-        form.reset();
-        form.querySelectorAll('.field-error').forEach(el => {
-            el.textContent = '';
-            el.closest('.field')?.classList.remove('has-error');
-        });
-        document.getElementById('aId').value = '';
-        document.getElementById('articleModalTitle').textContent = 'Tulis Artikel Baru';
-        openModal(modal);
-        setTimeout(() => document.getElementById('aTitle')?.focus(), 300);
+    /* ============================================================
+       10. FORM HANDLING (dengan Counter)
+       ============================================================ */
+    const openAddModal = () => {
+        if (!els.form || !els.modal) return;
+        els.form.reset();
+        clearErrors();
+        $('aId') && ($('aId').value = '');
+        $('articleModalTitle') && ($('articleModalTitle').textContent = 'Tulis Artikel Baru');
+        updateCounters();
+        openModal(els.modal);
+        setTimeout(() => $('aTitle')?.focus(), 300);
     };
-    document.getElementById('btnAddArticle').addEventListener('click', openAdd);
-    document.getElementById('emptyAddArticle')?.addEventListener('click', openAdd);
 
-    /* ========== 7. AKSI BARIS ========== */
-    rowsEl.addEventListener('click', (e) => {
-        const btn = e.target.closest('button[data-act]');
-        if (!btn) return;
-        const item = currentData.find(x => String(x.id) === btn.dataset.id);
-        if (!item) return;
+    const openEditModal = (item) => {
+        if (!els.form || !els.modal) return;
+        clearErrors();
+        $('aId')       && ($('aId').value = item.id);
+        $('aTitle')    && ($('aTitle').value = item.title || '');
+        $('aCategory') && ($('aCategory').value = item.category || 'Artikel');
+        $('aStatus')   && ($('aStatus').value = item.status || 'published');
+        $('aExcerpt')  && ($('aExcerpt').value = item.excerpt || '');
+        $('aContent')  && ($('aContent').value = item.content || '');
+        $('articleModalTitle') && ($('articleModalTitle').textContent = 'Sunting Artikel');
+        updateCounters();
+        openModal(els.modal);
+        setTimeout(() => $('aTitle')?.focus(), 300);
+    };
 
-        if (btn.dataset.act === 'edit') {
-            form.querySelectorAll('.field-error').forEach(el => {
-                el.textContent = '';
-                el.closest('.field')?.classList.remove('has-error');
-            });
-            document.getElementById('aId').value       = item.id;
-            document.getElementById('aTitle').value    = item.title;
-            document.getElementById('aCategory').value = item.category;
-            document.getElementById('aExcerpt').value  = item.excerpt || '';
-            document.getElementById('aContent').value  = item.content || '';
-            document.getElementById('articleModalTitle').textContent = 'Sunting Artikel';
-            openModal(modal);
-            setTimeout(() => document.getElementById('aTitle')?.focus(), 300);
-        }
-        if (btn.dataset.act === 'del') {
-            deleteId = item.id;
-            document.getElementById('articleDeleteText').textContent =
-                'Artikel "' + item.title + '" akan dihapus permanen dari halaman publik.';
-            openModal(delModal);
-        }
-    });
+    const openDeleteModal = (item) => {
+        if (!els.delModal) return;
+        state.deleteId = item.id;
+        const textEl = $('articleDeleteText');
+        if (textEl) textEl.textContent =
+            `Artikel "${item.title}" akan dihapus permanen dari halaman publik.`;
+        openModal(els.delModal);
+    };
 
-    /* ========== 8. SIMPAN ARTIKEL ========== */
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const id  = document.getElementById('aId').value;
-        const url = id ? api('articles/update/' + id) : api('articles/store');
-        const btn = form.querySelector('button[type="submit"]');
-        btn.classList.add('is-loading');
-        form.querySelectorAll('.field-error').forEach(el => {
+    const clearErrors = () => {
+        els.form?.querySelectorAll('.field-error').forEach(el => {
             el.textContent = '';
             el.closest('.field')?.classList.remove('has-error');
         });
+    };
 
-        form.style.opacity = '0.7';
+    $('btnAddArticle')?.addEventListener('click', openAddModal);
+    $('emptyAddArticle')?.addEventListener('click', openAddModal);
+
+    /* ============================================================
+       11. CHARACTER & WORD COUNTERS (v7.0)
+       ============================================================ */
+    const updateCounters = () => {
+        const excerpt = $('aExcerpt');
+        const content = $('aContent');
+        const excerptCounter = $('excerptCounter');
+        const contentCounter = $('contentCounter');
+
+        if (excerpt && excerptCounter) {
+            excerpt.addEventListener('input', () => {
+                const len = excerpt.value.length;
+                excerptCounter.textContent = len + '/300';
+                excerptCounter.style.color = len > 300 ? 'var(--danger-2)' : 'var(--txt-2)';
+            });
+            excerpt.dispatchEvent(new Event('input'));
+        }
+
+        if (content && contentCounter) {
+            content.addEventListener('input', () => {
+                const words = content.value.trim().split(/\s+/).filter(Boolean).length;
+                const readTime = Math.max(1, Math.ceil(words / 200));
+                contentCounter.textContent = words + ' kata · ~' + readTime + ' menit baca';
+            });
+            content.dispatchEvent(new Event('input'));
+        }
+    };
+
+    /* ============================================================
+       12. SAVE ARTICLE (Create/Update)
+       ============================================================ */
+    els.form?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = $('aId')?.value;
+        const url = id ? PAGE('update/' + id) : PAGE('store');
+        const btn = els.form.querySelector('button[type="submit"]');
+
+        btn?.classList.add('is-loading');
+        clearErrors();
+        els.form.style.opacity = '0.7';
+
         try {
-            const res  = await fetch(url, { method: 'POST', body: new FormData(form) });
+            const res = await fetch(url, { method: 'POST', body: new FormData(els.form) });
             const json = await res.json();
-            btn.classList.remove('is-loading');
-            form.style.opacity = '1';
+            btn?.classList.remove('is-loading');
+            els.form.style.opacity = '1';
 
             if (json.ok) {
-                form.style.borderColor = 'var(--ok)';
-                setTimeout(() => form.style.borderColor = '', 1000);
-                closeModal(modal);
+                els.form.style.borderColor = 'var(--ok)';
+                setTimeout(() => { els.form.style.borderColor = ''; }, 1000);
+                closeModal(els.modal);
                 toast(json.message, 'success');
-                createConfetti();
-                load();
+                launchConfetti();
+                loadArticles();
             } else if (json.errors) {
                 Object.entries(json.errors).forEach(([k, v]) => {
-                    const err = form.querySelector('[data-error="' + k + '"]');
+                    const err = els.form.querySelector('[data-error="' + k + '"]');
                     if (err) {
                         err.textContent = v;
                         err.closest('.field')?.classList.add('has-error');
                     }
                 });
                 toast('Mohon periksa kembali isian Anda.', 'error');
-                form.style.animation = 'shake .4s';
-                setTimeout(() => form.style.animation = '', 400);
+                els.form.style.animation = 'shake .4s';
+                setTimeout(() => { els.form.style.animation = ''; }, 400);
             } else {
                 toast(json.message || 'Gagal menyimpan.', 'error');
             }
         } catch (err) {
-            btn.classList.remove('is-loading');
-            form.style.opacity = '1';
+            btn?.classList.remove('is-loading');
+            els.form.style.opacity = '1';
             toast('Koneksi ke server gagal.', 'error');
         }
     });
 
-    /* ========== 9. KONFETI SEDERHANA ========== */
-    function createConfetti() {
-        const colors = ['#6366f1', '#22d3ee', '#10b981', '#f59e0b'];
-        for (let i = 0; i < 25; i++) {
+    /* ============================================================
+       13. DELETE ARTICLE
+       ============================================================ */
+    $('btnConfirmArticleDelete')?.addEventListener('click', async () => {
+        if (!state.deleteId) return;
+        const fd = new FormData();
+        fd.append('csrf_token', csrf());
+        const btn = $('btnConfirmArticleDelete');
+        btn?.classList.add('is-loading');
+
+        try {
+            const res = await fetch(PAGE('delete/' + state.deleteId), {
+                method: 'POST', body: fd
+            });
+            const json = await res.json();
+            btn?.classList.remove('is-loading');
+            closeModal(els.delModal);
+            toast(json.message, json.ok ? 'success' : 'error');
+            if (json.ok) loadArticles();
+        } catch (err) {
+            btn?.classList.remove('is-loading');
+            toast('Koneksi ke server gagal.', 'error');
+        }
+        state.deleteId = null;
+    });
+
+    /* ============================================================
+       14. CONFETTI ANIMATION (Enhanced)
+       ============================================================ */
+    function launchConfetti() {
+        const colors = ['#6366f1', '#22d3ee', '#10b981', '#f59e0b', '#ec4899'];
+        for (let i = 0; i < 40; i++) {
             const confetti = document.createElement('div');
             confetti.className = 'confetti';
             confetti.style.cssText = `
                 position: fixed;
-                width: 8px;
-                height: 8px;
+                width: ${6 + Math.random() * 4}px;
+                height: ${6 + Math.random() * 4}px;
                 background: ${colors[Math.floor(Math.random() * colors.length)]};
                 top: -10px;
                 left: ${Math.random() * 100}vw;
@@ -270,42 +615,61 @@
                 animation: confetti-fall ${2 + Math.random() * 2}s linear forwards;
             `;
             document.body.appendChild(confetti);
-            setTimeout(() => confetti.remove(), 4000);
+            setTimeout(() => confetti.remove(), 4500);
         }
     }
 
-    /* ========== 10. HAPUS ARTIKEL ========== */
-    document.getElementById('btnConfirmArticleDelete').addEventListener('click', async () => {
-        if (!deleteId) return;
-        const fd = new FormData();
-        fd.append('csrf_token', csrf());
-        const btn = document.getElementById('btnConfirmArticleDelete');
-        btn.classList.add('is-loading');
-        try {
-            const res  = await fetch(api('articles/delete/' + deleteId), { method: 'POST', body: fd });
-            const json = await res.json();
-            btn.classList.remove('is-loading');
-            closeModal(delModal);
-            toast(json.message, json.ok ? 'success' : 'error');
-            if (json.ok) load();
-        } catch (err) {
-            btn.classList.remove('is-loading');
-            toast('Koneksi ke server gagal.', 'error');
-        }
-        deleteId = null;
+    /* ============================================================
+       15. EXPORT CSV (v7.0)
+       ============================================================ */
+    $('btnExportArticles')?.addEventListener('click', () => {
+        const params = new URLSearchParams();
+        if (state.q) params.set('q', state.q);
+        if (state.status) params.set('status', state.status);
+        if (state.category) params.set('category', state.category);
+        window.location.href = BASE + 'articles/export?' + params.toString();
+        toast('Mengunduh CSV...', 'success');
     });
 
-    /* ========== 11. KEYBOARD SHORTCUTS ========== */
+    /* ============================================================
+       16. KEYBOARD SHORTCUTS
+       ============================================================ */
     document.addEventListener('keydown', (e) => {
-        // Ctrl/Cmd + N untuk artikel baru
+        // Ctrl/Cmd + N = Artikel Baru
         if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n' && !e.shiftKey) {
-            const isOnArticlesPage = document.body.dataset.base && window.location.pathname.includes('articles');
-            if (isOnArticlesPage) {
+            const onArticlesPage = window.location.pathname.includes('articles');
+            if (onArticlesPage && !document.querySelector('.modal-backdrop.show')) {
                 e.preventDefault();
-                openAdd();
+                openAddModal();
+            }
+        }
+
+        // Ctrl/Cmd + F = Fokus pencarian
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f' && els.search) {
+            const onArticlesPage = window.location.pathname.includes('articles');
+            if (onArticlesPage && document.activeElement !== els.search) {
+                e.preventDefault();
+                els.search.focus();
+                els.search.select();
+            }
+        }
+
+        // Ctrl/Cmd + R = Refresh
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'r' && !e.shiftKey) {
+            const onArticlesPage = window.location.pathname.includes('articles');
+            if (onArticlesPage) {
+                e.preventDefault();
+                loadArticles(true);
             }
         }
     });
 
-    load();
+    /* ============================================================
+       17. INITIALIZATION
+       ============================================================ */
+    if (els.rows) {
+        loadArticles();
+        console.log('%c📰 Articles Module v7.0 Loaded', 'color: #22d3ee; font-weight: bold;');
+    }
+
 })();

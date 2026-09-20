@@ -17,7 +17,11 @@
     <title><?= e($title ?? 'Dashboard') ?> • <?= e(APP_NAME) ?></title>
 
     <!-- Favicon dinamis -->
-    <?php $customFav = setting('favicon'); ?>
+    <?php 
+// PATCH v7.0: Fallback untuk helper setting() yang mungkin belum ada
+$customFav = function_exists('setting') ? setting('favicon') : '';
+$brandLogoText = defined('APP_NAME') ? substr(APP_NAME, 0, 2) : 'OU';
+?>
     <?php if ($customFav !== ''): ?>
         <link rel="icon" href="<?= url('assets/uploads/brand/' . e($customFav)) ?>">
     <?php else: ?>
@@ -349,7 +353,7 @@
     <!-- ========== SIDEBAR ========== -->
     <aside class="sidebar glass-panel" id="sidebar" aria-label="Navigasi utama">
         <div class="side-brand">
-            <span class="logo-mark">OU</span>
+            <span class="logo-mark"><?= e($brandLogoText) ?></span>
             <span class="brand-text"><?= e(APP_NAME) ?></span>
             <button class="side-collapse-btn" id="btnCollapse" title="Ciutkan menu" aria-label="Ciutkan menu">
                 <i class="ph ph-caret-left"></i>

@@ -1,76 +1,69 @@
-// File: public/assets/js/events.js (ULTIMATE EDITION - TAHAP 5.9)
+// File: public/assets/js/events.js (FINAL v7.0 ULTIMATE)
+// Modul Manajemen Event: Timeline + Filter + Stats + Cover + Multi-Day
 (() => {
     'use strict';
 
+    /* ============================================================
+       CONFIGURATION
+       ============================================================ */
     const BASE = document.body.dataset.base || '/';
     const api  = (path) => BASE + path;
 
-    const timeline = document.getElementById('eventTimeline');
-    const emptyEl  = document.getElementById('emptyEvents');
-    const infoEl   = document.getElementById('eventInfo');
-    const pageInfo = document.getElementById('eventPageInfo');
-    const pagerCur = document.getElementById('eventPagerCur');
-    const prevBtn  = document.getElementById('eventPrev');
-    const nextBtn  = document.getElementById('eventNext');
-    const searchEl = document.getElementById('eventSearch');
-    const refresh  = document.getElementById('btnEventRefresh');
-    const modal    = document.getElementById('eventModal');
-    const delModal = document.getElementById('eventDeleteModal');
-    const form     = document.getElementById('eventForm');
-
-    const state = { page: 1, pages: 1, q: '' };
-    let currentData = [];
-    let deleteId = null;
-
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
         ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    const csrf = () => form.querySelector('input[name="csrf_token"]').value;
+
+    const csrf = () =>
+        document.getElementById('eventForm')?.querySelector('input[name="csrf_token"]')?.value ||
+        document.querySelector('input[name="csrf_token"]')?.value || '';
 
     const STATUS = {
         upcoming: { label: 'Akan Datang',  cls: 'upcoming', icon: 'ph-calendar-plus' },
-        ongoing:  { label: 'Berlangsung', cls: 'ongoing', icon: 'ph-broadcast' },
-        done:     { label: 'Selesai',     cls: 'done', icon: 'ph-check-circle' }
+        ongoing:  { label: 'Berlangsung', cls: 'ongoing',  icon: 'ph-broadcast'     },
+        done:     { label: 'Selesai',     cls: 'done',     icon: 'ph-check-circle'  },
     };
 
-    /* ========== 1. LOAD DATA ========== */
-    async function load(spin = false) {
-        if (spin) {
-            refresh.querySelector('i').classList.add('is-spinning');
-            refresh.style.transform = 'rotate(360deg)';
-        } else {
-            renderSkeleton();
-        }
-        try {
-            const res  = await fetch(api('api/events?q=' + encodeURIComponent(state.q) + '&page=' + state.page));
-            const json = await res.json();
-            currentData = json.data;
-            state.pages = json.meta.pages;
-            render(json.data, json.meta);
-        } catch (e) {
-            timeline.innerHTML = '<p class="empty-state error"><i class="ph ph-warning-circle"></i> Gagal memuat data event.</p>';
-            toast('Koneksi ke server gagal.', 'error');
-        } finally {
-            refresh.querySelector('i').classList.remove('is-spinning');
-            refresh.style.transform = '';
-        }
-    }
+    const daysUntil = (dateStr) => {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const d = new Date(dateStr + 'T00:00:00');
+        return Math.round((d - today) / 86400000);
+    };
 
-    /* ========== 2. ANIMATE NUMBER ========== */
-    function animateNum(el, target) {
-        if (!el) return;
-        const start = parseInt(el.textContent, 10) || 0;
-        if (start === target) return;
-        const t0 = performance.now(), dur = 700;
-        const tick = (t) => {
-            const p = Math.min(1, (t - t0) / dur);
-            const eased = 1 - Math.pow(1 - p, 4);
-            el.textContent = Math.floor(start + (target - start) * eased);
-            if (p < 1) requestAnimationFrame(tick); else el.textContent = target;
-        };
-        requestAnimationFrame(tick);
-    }
+    const countdownLabel = (dateStr) => {
+        const n = daysUntil(dateStr);
+        if (n === 0) return 'Hari ini';
+        if (n === 1) return 'Besok';
+        if (n > 1)   return 'dalam ' + n + ' hari';
+        return Math.abs(n) + ' hari lalu';
+    };
 
-    /* ========== 3. SKELETON LOADING ========== */
+    /* ============================================================
+       STATE & DOM
+       ============================================================ */
+    const state = { page: 1, pages: 1, q: '', status: '' };
+    let currentData = [];
+    let deleteId = null;
+    let abortCtrl = null;
+
+    const $ = (id) => document.getElementById(id);
+    const timeline = $('eventTimeline');
+    const emptyEl  = $('emptyEvents');
+    const infoEl   = $('eventInfo');
+    const pageInfo = $('eventPageInfo');
+    const pagerCur = $('eventPagerCur');
+    const prevBtn  = $('eventPrev');
+    const nextBtn  = $('eventNext');
+    const searchEl = $('eventSearch');
+    const refresh  = $('btnEventRefresh');
+    const modal    = $('eventModal');
+    const delModal = $('eventDeleteModal');
+    const form     = $('eventForm');
+    const filtEl   = $('eventFilters');
+
+    if (!timeline) return; // Bukan halaman events
+
+    /* ============================================================
+       1. SKELETON LOADING
+       ============================================================ */
     function renderSkeleton() {
         timeline.innerHTML = Array.from({ length: 4 }, (_, i) => `
             <div class="timeline-item cascade-row" style="animation-delay:${i * 60}ms">
@@ -93,50 +86,179 @@
             </div>`).join('');
     }
 
-    /* ========== 4. RENDER TIMELINE ========== */
+    /* ============================================================
+       2. LOAD DATA (AbortController)
+       ============================================================ */
+    async function load(spin = false) {
+        const icon = refresh?.querySelector('i');
+        if (spin && icon) {
+            icon.classList.add('is-spinning');
+            if (refresh) refresh.style.transform = 'rotate(360deg)';
+        } else {
+            renderSkeleton();
+        }
+
+        if (abortCtrl) abortCtrl.abort();
+        abortCtrl = new AbortController();
+
+        const params = new URLSearchParams();
+        if (state.q) params.set('q', state.q);
+        if (state.status) params.set('status', state.status);
+        params.set('page', state.page);
+
+        try {
+            const res  = await fetch(api('api/events?' + params.toString()), { signal: abortCtrl.signal });
+            const json = await res.json();
+            currentData = json.data || [];
+            state.pages = json.meta?.pages || 1;
+            render(currentData, json.meta || {});
+        } catch (e) {
+            if (e.name === 'AbortError') return;
+            timeline.innerHTML = '<p class="empty-state error"><i class="ph ph-warning-circle"></i> Gagal memuat data event.</p>';
+            toast('Koneksi ke server gagal.', 'error');
+        } finally {
+            if (icon) icon.classList.remove('is-spinning');
+            if (refresh) refresh.style.transform = '';
+        }
+    }
+
+    /* ============================================================
+       3. ANIMATE NUMBER
+       ============================================================ */
+    function animateNum(el, target) {
+        if (!el || target === undefined || target === null) return;
+        const start = parseInt(el.textContent, 10) || 0;
+        if (start === target) { el.textContent = target; return; }
+        const t0 = performance.now(), dur = 700;
+        const tick = (t) => {
+            const p = Math.min(1, (t - t0) / dur);
+            const eased = 1 - Math.pow(1 - p, 4);
+            el.textContent = Math.floor(start + (target - start) * eased);
+            if (p < 1) requestAnimationFrame(tick);
+            else el.textContent = target;
+        };
+        requestAnimationFrame(tick);
+    }
+
+    /* ============================================================
+       4. FILTER CHIPS STATUS
+       ============================================================ */
+    function renderFilters(meta) {
+        if (!filtEl) return;
+        const opts = [
+            { val: '',         label: 'Semua',       count: meta.total    },
+            { val: 'upcoming', label: 'Akan Datang', count: meta.upcoming },
+            { val: 'ongoing',  label: 'Berlangsung', count: meta.ongoing  },
+            { val: 'done',     label: 'Selesai',     count: meta.done     },
+        ];
+        filtEl.innerHTML = opts.map(o => `
+            <button class="chip ${state.status === o.val ? 'chip-active' : ''}" data-status="${o.val}">
+                ${o.label}${o.count !== undefined ? ` <small style="opacity:.7">(${o.count})</small>` : ''}
+            </button>
+        `).join('');
+
+        filtEl.querySelectorAll('.chip').forEach(c => {
+            c.addEventListener('click', () => {
+                state.status = c.dataset.status;
+                state.page = 1;
+                load();
+            });
+        });
+    }
+
+    /* ============================================================
+       5. RENDER TIMELINE (dengan Pemisah Bulan + Countdown)
+       ============================================================ */
     function render(data, meta) {
-        infoEl.textContent   = meta.total + ' event tercatat';
-        pageInfo.textContent = 'Menampilkan ' + data.length + ' dari ' + meta.total;
-        pagerCur.textContent = meta.page + ' / ' + meta.pages;
-        prevBtn.disabled = meta.page <= 1;
-        nextBtn.disabled = meta.page >= meta.pages;
+        if (infoEl)   infoEl.textContent   = (meta.total || 0) + ' event tercatat';
+        if (pageInfo) pageInfo.textContent = 'Menampilkan ' + data.length + ' dari ' + (meta.total || 0);
+        if (pagerCur) pagerCur.textContent = (meta.page || 1) + ' / ' + (meta.pages || 1);
+        if (prevBtn)  prevBtn.disabled = (meta.page || 1) <= 1;
+        if (nextBtn)  nextBtn.disabled = (meta.page || 1) >= (meta.pages || 1);
 
-        animateNum(document.getElementById('miniUpcoming'), meta.upcoming);
-        animateNum(document.getElementById('miniOngoing'),  meta.ongoing);
-        animateNum(document.getElementById('miniDone'),     meta.done);
+        animateNum($('miniUpcoming'), meta.upcoming);
+        animateNum($('miniOngoing'),  meta.ongoing);
+        animateNum($('miniDone'),     meta.done);
+        animateNum($('miniTotal'),    meta.total);
 
-        const badge = document.getElementById('eventBadge');
+        const badge = $('eventBadge');
         if (badge) {
             const oldVal = parseInt(badge.textContent, 10) || 0;
-            animateNum(badge, meta.upcoming);
-            badge.style.display = meta.upcoming > 0 ? 'inline-block' : 'none';
-            if (meta.upcoming > oldVal) badge.classList.add('badge-pop');
+            animateNum(badge, meta.upcoming || 0);
+            badge.style.display = (meta.upcoming || 0) > 0 ? 'inline-block' : 'none';
+            if ((meta.upcoming || 0) > oldVal) {
+                badge.classList.remove('badge-pop');
+                void badge.offsetWidth;
+                badge.classList.add('badge-pop');
+            }
         }
+
+        renderFilters(meta);
 
         if (!data.length) {
             timeline.innerHTML = '';
-            emptyEl.style.display = 'flex';
-            document.getElementById('emptyEventTitle').textContent = state.q ? 'Tidak Ada Hasil' : 'Belum Ada Event';
-            document.getElementById('emptyEventText').textContent  = state.q
-                ? 'Tidak ada event yang cocok dengan pencarian "' + state.q + '".'
-                : 'Jadwalkan kegiatan pertama organisasi Anda dan pantau linimasanya di sini.';
+            if (emptyEl) {
+                emptyEl.style.display = 'flex';
+                const t = $('emptyEventTitle'), x = $('emptyEventText');
+                if (t) t.textContent = state.q ? 'Tidak Ada Hasil' : 'Belum Ada Event';
+                if (x) x.textContent = state.q
+                    ? 'Tidak ada event yang cocok dengan pencarian "' + state.q + '".'
+                    : 'Jadwalkan kegiatan pertama organisasi Anda dan pantau linimasanya di sini.';
+            }
             return;
         }
-        emptyEl.style.display = 'none';
+        if (emptyEl) emptyEl.style.display = 'none';
 
-        timeline.innerHTML = data.map((ev, i) => {
+        let lastMonth = '';
+        let html = '';
+
+        data.forEach((ev, i) => {
             const d    = new Date(ev.event_date + 'T00:00:00');
             const day  = String(d.getDate()).padStart(2, '0');
             const mon  = d.toLocaleDateString('id-ID', { month: 'short' });
             const st   = STATUS[ev.status] || STATUS.done;
             const time = ev.event_time ? ev.event_time.slice(0, 5) + ' WIB' : 'Waktu menyusul';
-            return `
+
+            // Pemisah bulan
+            const monthKey = d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+            if (monthKey !== lastMonth) {
+                lastMonth = monthKey;
+                html += `
+                <div style="display:flex;align-items:center;gap:14px;margin:${i === 0 ? '0' : '28px'} 0 16px;
+                            color:var(--txt-2);font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase">
+                    <span style="flex:1;height:1px;background:var(--glass-brd)"></span>
+                    <span><i class="ph ph-calendar-dots" style="margin-right:6px;color:var(--acc)"></i>${monthKey}</span>
+                    <span style="flex:1;height:1px;background:var(--glass-brd)"></span>
+                </div>`;
+            }
+
+            // Rentang tanggal (multi-day)
+            const endMeta = ev.end_date
+                ? `<span><i class="ph ph-calendar-dots"></i> s/d ${new Date(ev.end_date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>`
+                : '';
+
+            // Countdown untuk upcoming
+            const cdMeta = ev.status === 'upcoming'
+                ? `<span style="color:#67e8f9"><i class="ph ph-hourglass"></i> ${countdownLabel(ev.event_date)}</span>`
+                : '';
+
+            // Cover image (v7.0)
+            const cover = ev.cover_image
+                ? `<div style="margin:-18px -20px 14px;height:130px;overflow:hidden;border-radius:14px 14px 0 0">
+                       <img src="${BASE}assets/uploads/events/${esc(ev.cover_image)}" alt="" loading="lazy"
+                            style="width:100%;height:100%;object-fit:cover;transition:transform .5s"
+                            onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform=''">
+                   </div>`
+                : '';
+
+            html += `
             <div class="timeline-item cascade-row" style="animation-delay:${i * 60}ms">
                 <div class="timeline-node ${ev.status}">
                     <span class="timeline-day">${day}</span>
                     <span class="timeline-month">${mon}</span>
                 </div>
                 <article class="timeline-card glass-card">
+                    ${cover}
                     <div class="event-head">
                         <h4>${esc(ev.title)}</h4>
                         <span class="event-pill ${st.cls}">
@@ -147,6 +269,8 @@
                     <div class="event-meta">
                         <span><i class="ph ph-clock"></i> ${esc(time)}</span>
                         <span><i class="ph ph-map-pin"></i> ${esc(ev.location || 'Lokasi menyusul')}</span>
+                        ${endMeta}
+                        ${cdMeta}
                         ${ev.creator_name ? `<span><i class="ph ph-user-circle"></i> oleh @${esc(ev.creator_name)}</span>` : ''}
                     </div>
                     <div class="row-actions event-actions">
@@ -155,32 +279,33 @@
                     </div>
                 </article>
             </div>`;
-        }).join('');
+        });
 
-        // Bind efek-efek pada timeline cards
+        timeline.innerHTML = html;
         bindCardEffects();
     }
 
-    /* ========== 5. EFEK 3D TILT & RIPPLE PADA CARDS ========== */
+    /* ============================================================
+       6. CARD EFFECTS (3D Tilt + Ripple)
+       ============================================================ */
     function bindCardEffects() {
-        // 3D Tilt pada timeline cards
         timeline.querySelectorAll('.timeline-card').forEach(card => {
+            let raf = null;
             card.addEventListener('mousemove', function(e) {
-                const rect = this.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                const centerX = rect.width / 2;
-                const centerY = rect.height / 2;
-                const rotateX = (y - centerY) / 30;
-                const rotateY = (centerX - x) / 30;
-                this.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateX(6px)`;
+                if (raf) cancelAnimationFrame(raf);
+                raf = requestAnimationFrame(() => {
+                    const rect = this.getBoundingClientRect();
+                    const rotateX = (e.clientY - rect.top - rect.height / 2) / 30;
+                    const rotateY = (rect.width / 2 - (e.clientX - rect.left)) / 30;
+                    this.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateX(6px)`;
+                });
             });
             card.addEventListener('mouseleave', function() {
+                if (raf) cancelAnimationFrame(raf);
                 this.style.transform = '';
             });
         });
 
-        // Ripple effect pada tombol aksi
         timeline.querySelectorAll('.icon-btn').forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
@@ -195,22 +320,31 @@
         });
     }
 
-    /* ========== 6. PENCARIAN & PAGINASI ========== */
+    /* ============================================================
+       7. PENCARIAN & PAGINASI
+       ============================================================ */
     let debounce;
-    searchEl.addEventListener('input', () => {
+    searchEl?.addEventListener('input', () => {
         clearTimeout(debounce);
-        debounce = setTimeout(() => { state.q = searchEl.value.trim(); state.page = 1; load(); }, 300);
+        debounce = setTimeout(() => {
+            state.q = searchEl.value.trim();
+            state.page = 1;
+            load();
+        }, 300);
     });
-    searchEl.addEventListener('focus', () => searchEl.parentElement.classList.add('focused'));
-    searchEl.addEventListener('blur', () => searchEl.parentElement.classList.remove('focused'));
-    
-    prevBtn.addEventListener('click', () => { if (state.page > 1) { state.page--; load(); } });
-    nextBtn.addEventListener('click', () => { if (state.page < state.pages) { state.page++; load(); } });
-    refresh.addEventListener('click', () => load(true));
+    searchEl?.addEventListener('focus', () => searchEl.parentElement?.classList.add('focused'));
+    searchEl?.addEventListener('blur',  () => searchEl.parentElement?.classList.remove('focused'));
 
-    /* ========== 7. MODAL HANDLING ========== */
-    const openModal  = (m) => m.classList.add('show');
-    const closeModal = (m) => m.classList.remove('show');
+    prevBtn?.addEventListener('click', () => { if (state.page > 1) { state.page--; load(); } });
+    nextBtn?.addEventListener('click', () => { if (state.page < state.pages) { state.page++; load(); } });
+    refresh?.addEventListener('click', () => load(true));
+
+    /* ============================================================
+       8. MODAL HANDLING
+       ============================================================ */
+    const openModal  = (m) => { if (m) { m.classList.add('show'); document.body.style.overflow = 'hidden'; } };
+    const closeModal = (m) => { if (m) { m.classList.remove('show'); document.body.style.overflow = ''; } };
+
     document.querySelectorAll('[data-close-modal]').forEach(b =>
         b.addEventListener('click', () => closeModal(b.closest('.modal-backdrop'))));
     document.querySelectorAll('.modal-backdrop').forEach(bd =>
@@ -220,21 +354,82 @@
     });
 
     const openAdd = () => {
-        form.reset();
-        form.querySelectorAll('.field-error').forEach(el => {
+        form?.reset();
+        clearErrors();
+        if ($('eId')) $('eId').value = '';
+        if ($('eDate')) $('eDate').value = new Date().toISOString().slice(0, 10);
+        if ($('eventModalTitle')) $('eventModalTitle').textContent = 'Buat Event Baru';
+        resetCoverPreview();
+        openModal(modal);
+        setTimeout(() => $('eTitle')?.focus(), 300);
+    };
+    $('btnAddEvent')?.addEventListener('click', openAdd);
+    $('emptyAddEvent')?.addEventListener('click', openAdd);
+
+    function clearErrors() {
+        form?.querySelectorAll('.field-error').forEach(el => {
             el.textContent = '';
             el.closest('.field')?.classList.remove('has-error');
         });
-        document.getElementById('eId').value = '';
-        document.getElementById('eDate').value = new Date().toISOString().slice(0, 10);
-        document.getElementById('eventModalTitle').textContent = 'Buat Event Baru';
-        openModal(modal);
-        setTimeout(() => document.getElementById('eTitle')?.focus(), 300);
-    };
-    document.getElementById('btnAddEvent').addEventListener('click', openAdd);
-    document.getElementById('emptyAddEvent')?.addEventListener('click', openAdd);
+    }
 
-    /* ========== 8. AKSI BARIS ========== */
+    /* ============================================================
+       9. COVER UPLOAD PREVIEW
+       ============================================================ */
+    function resetCoverPreview() {
+        const p = $('eCoverPreview');
+        if (p && p.dataset.initial) p.innerHTML = p.dataset.initial;
+    }
+
+    const coverInput = $('eCover'), coverPreview = $('eCoverPreview');
+    if (coverPreview && !coverPreview.dataset.initial) coverPreview.dataset.initial = coverPreview.innerHTML;
+
+    coverInput?.addEventListener('change', () => {
+        const file = coverInput.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            toast('Cover harus berupa gambar.', 'error');
+            coverInput.value = '';
+            return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+            toast('Ukuran cover maksimal 10 MB.', 'error');
+            coverInput.value = '';
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            coverPreview.style.transition = 'opacity .3s';
+            coverPreview.style.opacity = '0';
+            setTimeout(() => {
+                coverPreview.innerHTML = `<img src="${ev.target.result}" alt="Preview" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`;
+                coverPreview.style.opacity = '1';
+            }, 150);
+        };
+        reader.readAsDataURL(file);
+    });
+
+    /* ============================================================
+       10. VALIDASI KLIEN (End Date >= Start Date)
+       ============================================================ */
+    function validateClient() {
+        const start = $('eDate')?.value;
+        const end   = $('eEndDate')?.value;
+        if (start && end && end < start) {
+            const err = form?.querySelector('[data-error="end_date"]');
+            if (err) {
+                err.textContent = 'Tanggal selesai tidak boleh sebelum tanggal mulai.';
+                err.closest('.field')?.classList.add('has-error');
+            }
+            toast('Tanggal selesai tidak valid.', 'error');
+            return false;
+        }
+        return true;
+    }
+
+    /* ============================================================
+       11. AKSI BARIS (Edit / Delete)
+       ============================================================ */
     timeline.addEventListener('click', (e) => {
         const btn = e.target.closest('button[data-act]');
         if (!btn) return;
@@ -242,53 +437,67 @@
         if (!item) return;
 
         if (btn.dataset.act === 'edit') {
-            form.querySelectorAll('.field-error').forEach(el => {
-                el.textContent = '';
-                el.closest('.field')?.classList.remove('has-error');
-            });
-            document.getElementById('eId').value       = item.id;
-            document.getElementById('eTitle').value    = item.title;
-            document.getElementById('eDate').value     = item.event_date;
-            document.getElementById('eTime').value     = item.event_time || '';
-            document.getElementById('eLocation').value = item.location || '';
-            document.getElementById('eDesc').value     = item.description || '';
-            document.getElementById('eventModalTitle').textContent = 'Ubah Event';
+            clearErrors();
+            if ($('eId'))       $('eId').value       = item.id;
+            if ($('eTitle'))    $('eTitle').value    = item.title || '';
+            if ($('eDate'))     $('eDate').value     = item.event_date || '';
+            if ($('eEndDate'))  $('eEndDate').value  = item.end_date || '';
+            if ($('eTime'))     $('eTime').value     = item.event_time || '';
+            if ($('eLocation')) $('eLocation').value = item.location || '';
+            if ($('eDesc'))     $('eDesc').value     = item.description || '';
+            if ($('eventModalTitle')) $('eventModalTitle').textContent = 'Ubah Event';
+            resetCoverPreview();
+            updateDescCounter();
             openModal(modal);
-            setTimeout(() => document.getElementById('eTitle')?.focus(), 300);
+            setTimeout(() => $('eTitle')?.focus(), 300);
         }
+
         if (btn.dataset.act === 'del') {
             deleteId = item.id;
-            document.getElementById('eventDeleteText').textContent =
-                'Event "' + item.title + '" akan dihapus permanen dari linimasa.';
+            const t = $('eventDeleteText');
+            if (t) t.textContent = 'Event "' + item.title + '" akan dihapus permanen dari linimasa.';
             openModal(delModal);
         }
     });
 
-    /* ========== 9. SIMPAN EVENT ========== */
-    form.addEventListener('submit', async (e) => {
+    /* ============================================================
+       12. DESCRIPTION COUNTER
+       ============================================================ */
+    function updateDescCounter() {
+        const desc = $('eDesc'), counter = $('eDescCounter');
+        if (!desc || !counter) return;
+        const len = desc.value.length;
+        counter.textContent = len + '/5000';
+        counter.style.color = len > 4500 ? 'var(--warn)' : 'var(--txt-2)';
+    }
+    $('eDesc')?.addEventListener('input', updateDescCounter);
+
+    /* ============================================================
+       13. SIMPAN EVENT
+       ============================================================ */
+    form?.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const id  = document.getElementById('eId').value;
+        clearErrors();
+        if (!validateClient()) return;
+
+        const id  = $('eId')?.value;
         const url = id ? api('events/update/' + id) : api('events/store');
         const btn = form.querySelector('button[type="submit"]');
-        btn.classList.add('is-loading');
-        form.querySelectorAll('.field-error').forEach(el => {
-            el.textContent = '';
-            el.closest('.field')?.classList.remove('has-error');
-        });
-
+        btn?.classList.add('is-loading');
         form.style.opacity = '0.7';
+
         try {
             const res  = await fetch(url, { method: 'POST', body: new FormData(form) });
             const json = await res.json();
-            btn.classList.remove('is-loading');
+            btn?.classList.remove('is-loading');
             form.style.opacity = '1';
 
             if (json.ok) {
                 form.style.borderColor = 'var(--ok)';
-                setTimeout(() => form.style.borderColor = '', 1000);
+                setTimeout(() => { form.style.borderColor = ''; }, 1000);
                 closeModal(modal);
                 toast(json.message, 'success');
-                createConfetti();
+                launchConfetti();
                 load();
             } else if (json.errors) {
                 Object.entries(json.errors).forEach(([k, v]) => {
@@ -300,68 +509,82 @@
                 });
                 toast('Mohon periksa kembali formulir.', 'error');
                 form.style.animation = 'shake .4s';
-                setTimeout(() => form.style.animation = '', 400);
+                setTimeout(() => { form.style.animation = ''; }, 400);
             } else {
                 toast(json.message || 'Gagal menyimpan.', 'error');
             }
         } catch (err) {
-            btn.classList.remove('is-loading');
+            btn?.classList.remove('is-loading');
             form.style.opacity = '1';
             toast('Koneksi ke server gagal.', 'error');
         }
     });
 
-    /* ========== 10. KONFETI ========== */
-    function createConfetti() {
-        const colors = ['#6366f1', '#22d3ee', '#10b981', '#f59e0b'];
-        for (let i = 0; i < 25; i++) {
-            const confetti = document.createElement('div');
-            confetti.className = 'confetti';
-            confetti.style.cssText = `
-                position: fixed;
-                width: 8px; height: 8px;
-                background: ${colors[Math.floor(Math.random() * colors.length)]};
-                top: -10px; left: ${Math.random() * 100}vw;
-                border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
-                pointer-events: none; z-index: 9999;
-                animation: confetti-fall ${2 + Math.random() * 2}s linear forwards;
-            `;
-            document.body.appendChild(confetti);
-            setTimeout(() => confetti.remove(), 4000);
-        }
-    }
-
-    /* ========== 11. HAPUS EVENT ========== */
-    document.getElementById('btnConfirmEventDelete').addEventListener('click', async () => {
+    /* ============================================================
+       14. HAPUS EVENT
+       ============================================================ */
+    $('btnConfirmEventDelete')?.addEventListener('click', async function() {
         if (!deleteId) return;
         const fd = new FormData();
         fd.append('csrf_token', csrf());
-        const btn = document.getElementById('btnConfirmEventDelete');
-        btn.classList.add('is-loading');
+        this.classList.add('is-loading');
         try {
             const res  = await fetch(api('events/delete/' + deleteId), { method: 'POST', body: fd });
             const json = await res.json();
-            btn.classList.remove('is-loading');
+            this.classList.remove('is-loading');
             closeModal(delModal);
             toast(json.message, json.ok ? 'success' : 'error');
             if (json.ok) load();
         } catch (err) {
-            btn.classList.remove('is-loading');
+            this.classList.remove('is-loading');
             toast('Koneksi ke server gagal.', 'error');
         }
         deleteId = null;
     });
 
-    /* ========== 12. KEYBOARD SHORTCUTS ========== */
+    /* ============================================================
+       15. CONFETTI
+       ============================================================ */
+    function launchConfetti() {
+        const colors = ['#6366f1', '#22d3ee', '#10b981', '#f59e0b', '#ec4899'];
+        for (let i = 0; i < 30; i++) {
+            const c = document.createElement('div');
+            c.className = 'confetti';
+            c.style.cssText = `
+                position:fixed; width:${6 + Math.random() * 4}px; height:${6 + Math.random() * 4}px;
+                background:${colors[Math.floor(Math.random() * colors.length)]};
+                top:-10px; left:${Math.random() * 100}vw;
+                border-radius:${Math.random() > 0.5 ? '50%' : '2px'};
+                pointer-events:none; z-index:9999;
+                animation:confetti-fall ${2 + Math.random() * 2}s linear forwards;
+            `;
+            document.body.appendChild(c);
+            setTimeout(() => c.remove(), 4500);
+        }
+    }
+
+    /* ============================================================
+       16. KEYBOARD SHORTCUTS
+       ============================================================ */
     document.addEventListener('keydown', (e) => {
+        if (!window.location.pathname.includes('events')) return;
+        if (document.querySelector('.modal-backdrop.show')) return;
+
         if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n' && !e.shiftKey) {
-            const isOnEventsPage = window.location.pathname.includes('events');
-            if (isOnEventsPage) {
-                e.preventDefault();
-                openAdd();
-            }
+            e.preventDefault();
+            openAdd();
+        }
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f' && searchEl) {
+            e.preventDefault();
+            searchEl.focus();
+            searchEl.select();
         }
     });
 
+    /* ============================================================
+       17. INITIALIZATION
+       ============================================================ */
     load();
+    console.log('%c📅 Events Module v7.0 Loaded', 'color: #22d3ee; font-weight: bold;');
+
 })();

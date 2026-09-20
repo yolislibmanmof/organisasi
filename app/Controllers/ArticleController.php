@@ -1,5 +1,5 @@
 <?php
-// File: app/Controllers/ArticleController.php (FINAL v7.0.1 — VIEW-FALLBACK SAFE)
+// File: app/Controllers/ArticleController.php (FINAL v7.0.4 — PARSE-ERROR FIXED)
 declare(strict_types=1);
 
 namespace Controllers;
@@ -12,11 +12,14 @@ use Models\Article;
 use Models\Setting;
 
 /**
- * ArticleController — Ultimate Edition v7.0.1
+ * ArticleController — Ultimate Edition v7.0.4
  *
- * PATCH v7.0.1: Fallback nama view otomatis.
- * Jika 'pages/artikel' tidak ada, pakai 'pages/articles/list' (legacy).
- * Jika 'pages/article-detail' tidak ada, pakai 'pages/articles/detail' (legacy).
+ * PATCH v7.0.4 (KRITIS): pulihkan kurung penutup method manage() yang
+ * hilang pada v7.0.3 — kehilangan satu karakter ini membuat SELURUH
+ * class gagal dimuat (parse error) sehingga semua route artikel 500.
+ *
+ * Fitur: fallback nama view otomatis (resolveView), search, cover image,
+ * bulk actions, CSV export, audit logging, graceful fallback.
  */
 class ArticleController
 {
@@ -79,10 +82,10 @@ class ArticleController
             ? url('artikel' . ($category !== '' ? '?kategori=' . urlencode($category) : ''))
             : '/artikel';
 
-        // ===== PATCH v7.0.1: Fallback nama view =====
+        // Fallback nama view: v7.0 → legacy
         $viewFile = $this->resolveView([
-            'pages/artikel',           // nama v7.0
-            'pages/articles/list',     // nama lama v5.x
+            'pages/artikel',
+            'pages/articles/list',
             'pages/articles/index',
         ]);
 
@@ -162,10 +165,10 @@ class ArticleController
             ? url('artikel/' . $article['id'])
             : '/artikel/' . $article['id'];
 
-        // ===== PATCH v7.0.1: Fallback nama view =====
+        // Fallback nama view: v7.0 → legacy
         $viewFile = $this->resolveView([
-            'pages/article-detail',    // nama v7.0
-            'pages/articles/detail',   // nama lama v5.x
+            'pages/article-detail',
+            'pages/articles/detail',
             'pages/articles/show',
         ]);
 
@@ -196,6 +199,9 @@ class ArticleController
        SISI ADMIN
        ============================================================ */
 
+    /**
+     * Halaman manajemen artikel (render view, data via API).
+     */
     public function manage(): void
     {
         Auth::handle();
@@ -206,10 +212,10 @@ class ArticleController
             Article::CATEGORIES
         );
 
-        // PATCH v7.0.3: fallback nama view admin artikel
+        // Fallback nama view admin artikel: v7.0 → legacy
         $viewFile = $this->resolveView([
-            'pages/articles',          // nama v7.0
-            'pages/articles/manage',   // nama lama v5.x (paling mungkin)
+            'pages/articles',
+            'pages/articles/manage',
             'pages/articles-manage',
             'pages/article-manage',
         ]);
@@ -219,7 +225,12 @@ class ArticleController
             'user'       => Session::get('user'),
             'categories' => $categories,
         ], 'layouts/app');
+    } // <-- PENUTUP METHOD manage() (inilah yang hilang pada v7.0.3)
 
+    /**
+     * API endpoint untuk admin: list + filter + search + pagination + stats.
+     * GET /admin/articles/api?q=X&status=Y&category=Z&sort=S&order=O&page=N
+     */
     public function api(): void
     {
         Auth::handle();
@@ -267,6 +278,9 @@ class ArticleController
         ]);
     }
 
+    /**
+     * Simpan artikel baru (dengan cover image upload).
+     */
     public function store(): void
     {
         Auth::handle();
@@ -274,16 +288,18 @@ class ArticleController
 
         if (!csrf_verify($_POST[CSRF_TOKEN_NAME] ?? null)) {
             json(['ok' => false, 'message' => 'Sesi tidak valid.'], 419);
+            return;
         }
 
         $data = $this->validate();
         if (isset($data['errors'])) {
             json(['ok' => false, 'errors' => $data['errors']], 422);
+            return;
         }
 
         $coverImage = $this->handleCoverUpload();
         if ($coverImage === false) {
-            json(['ok' => false, 'message' => 'Gagal mengupload cover.'], 500);
+            json(['ok' => false, 'message' => 'Gagal mengupload cover.'], 422);
             return;
         }
         if ($coverImage !== null) {
@@ -306,6 +322,9 @@ class ArticleController
         }
     }
 
+    /**
+     * Update artikel (dengan optional cover image upload).
+     */
     public function update(string $id): void
     {
         Auth::handle();
@@ -313,10 +332,17 @@ class ArticleController
 
         if (!csrf_verify($_POST[CSRF_TOKEN_NAME] ?? null)) {
             json(['ok' => false, 'message' => 'Sesi tidak valid.'], 419);
+            return;
+        }
+
+        $idInt = (int) $id;
+        if ($idInt <= 0) {
+            json(['ok' => false, 'message' => 'ID tidak valid.'], 422);
+            return;
         }
 
         $existing = $this->safeCall(
-            fn() => Article::findAny((int) $id),
+            fn() => Article::findAny($idInt),
             null
         );
 
@@ -333,7 +359,7 @@ class ArticleController
 
         $coverImage = $this->handleCoverUpload();
         if ($coverImage === false) {
-            json(['ok' => false, 'message' => 'Gagal mengupload cover.'], 500);
+            json(['ok' => false, 'message' => 'Gagal mengupload cover.'], 422);
             return;
         }
         if ($coverImage !== null) {
@@ -344,7 +370,7 @@ class ArticleController
         }
 
         try {
-            Article::update((int) $id, $data);
+            Article::update($idInt, $data);
             json(['ok' => true, 'message' => 'Perubahan artikel telah disimpan.']);
         } catch (\Throwable $e) {
             error_log('[ArticleController::update] ' . $e->getMessage());
@@ -355,6 +381,9 @@ class ArticleController
         }
     }
 
+    /**
+     * Hapus satu artikel (dengan cleanup cover file).
+     */
     public function destroy(string $id): void
     {
         Auth::handle();
@@ -362,10 +391,17 @@ class ArticleController
 
         if (!csrf_verify($_POST[CSRF_TOKEN_NAME] ?? null)) {
             json(['ok' => false, 'message' => 'Sesi tidak valid.'], 419);
+            return;
+        }
+
+        $idInt = (int) $id;
+        if ($idInt <= 0) {
+            json(['ok' => false, 'message' => 'ID tidak valid.'], 422);
+            return;
         }
 
         $existing = $this->safeCall(
-            fn() => Article::findAny((int) $id),
+            fn() => Article::findAny($idInt),
             null
         );
 
@@ -375,7 +411,7 @@ class ArticleController
         }
 
         try {
-            Article::delete((int) $id);
+            Article::delete($idInt);
             json(['ok' => true, 'message' => 'Artikel telah dihapus.']);
         } catch (\Throwable $e) {
             error_log('[ArticleController::destroy] ' . $e->getMessage());
@@ -383,6 +419,9 @@ class ArticleController
         }
     }
 
+    /**
+     * Bulk delete (JSON body: {ids: [1,2,3]}).
+     */
     public function bulkDelete(): void
     {
         Auth::handle();
@@ -390,6 +429,7 @@ class ArticleController
 
         if (!csrf_verify($_POST[CSRF_TOKEN_NAME] ?? null)) {
             json(['ok' => false, 'message' => 'Sesi tidak valid.'], 419);
+            return;
         }
 
         $input = json_decode(file_get_contents('php://input'), true) ?? [];
@@ -416,6 +456,9 @@ class ArticleController
         }
     }
 
+    /**
+     * Bulk update status (JSON body: {ids: [1,2,3], status: 'published'|'draft'}).
+     */
     public function bulkUpdateStatus(): void
     {
         Auth::handle();
@@ -423,6 +466,7 @@ class ArticleController
 
         if (!csrf_verify($_POST[CSRF_TOKEN_NAME] ?? null)) {
             json(['ok' => false, 'message' => 'Sesi tidak valid.'], 419);
+            return;
         }
 
         $input = json_decode(file_get_contents('php://input'), true) ?? [];
@@ -456,6 +500,10 @@ class ArticleController
         }
     }
 
+    /**
+     * Export artikel ke CSV.
+     * GET /admin/articles/export?status=published
+     */
     public function export(): void
     {
         Auth::handle();
@@ -606,8 +654,8 @@ class ArticleController
         }
     }
 
-        /**
-     * PATCH v7.0.3: pilih nama view pertama yang benar-benar ada di disk.
+    /**
+     * Pilih nama view pertama yang benar-benar ada di disk.
      * Mencegah 500 akibat perbedaan nama file view antar versi.
      *
      * @param array<int, string> $candidates

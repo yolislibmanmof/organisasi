@@ -1,6 +1,7 @@
 /* ========================================================================
-   ORGANISASI ULTIMATE — LANDING.CSS v6.0
-   Navbar premium, footer kaya, responsive sempurna
+   ORGANISASI ULTIMATE — LANDING.CSS v7.0 ULTIMATE
+   Premium Public Pages: Navbar, Hero, Sections, Footer
+   Smooth animations, rich interactions, polished responsive
    ======================================================================== */
 
 :root {
@@ -39,6 +40,7 @@ body.public-body {
     min-height: 100vh;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     position: relative;
 }
 
@@ -52,6 +54,7 @@ a { color: inherit; text-decoration: none; transition: color .2s; }
     border-radius: 99px;
     border: 2px solid transparent;
     background-clip: padding-box;
+    transition: background .2s;
 }
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(255,255,255,.16);
@@ -60,13 +63,18 @@ a { color: inherit; text-decoration: none; transition: color .2s; }
 }
 
 input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
 textarea:-webkit-autofill {
     -webkit-box-shadow: 0 0 0 1000px #171c33 inset !important;
     -webkit-text-fill-color: #f4f6ff !important;
     caret-color: #f4f6ff;
+    transition: background-color 9999s ease-in-out 0s;
 }
 
-/* 2. PUBLIC BACKGROUND LAYERS */
+/* ============================================================
+   1. PUBLIC BACKGROUND LAYERS (Premium Gradient Mesh)
+   ============================================================ */
 .public-body::before {
     content: '';
     position: fixed; inset: 0; z-index: -2;
@@ -77,6 +85,7 @@ textarea:-webkit-autofill {
         var(--bg-0);
     animation: bg-shift 20s ease-in-out infinite alternate;
 }
+
 .public-body::after {
     content: '';
     position: fixed; inset: 0; z-index: -1; pointer-events: none;
@@ -93,7 +102,9 @@ textarea:-webkit-autofill {
 .public-particles { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
 .public-mesh { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
 
-/* 3. PUBLIC GLASS CARD */
+/* ============================================================
+   2. GLASS CARD (Premium Glassmorphism)
+   ============================================================ */
 .glass-card {
     background: var(--glass);
     backdrop-filter: blur(18px) saturate(140%);
@@ -111,12 +122,14 @@ textarea:-webkit-autofill {
         inset 0 1px 0 rgba(255,255,255,.08);
 }
 
-/* 4. PUBLIC NAVBAR (v7.0 - CLEAN & PROFESSIONAL) */
+/* ============================================================
+   3. PUBLIC NAVBAR v7.0 (Ultra Smooth & Professional)
+   ============================================================ */
 .pub-navbar {
     position: fixed; top: 0; left: 0; right: 0; z-index: 50;
     padding: 18px 0;
     background: transparent;
-    transition: all .35s cubic-bezier(.22,1,.36,1);
+    transition: all .4s cubic-bezier(.22,1,.36,1);
 }
 .pub-navbar.scrolled {
     padding: 12px 0;
@@ -126,10 +139,12 @@ textarea:-webkit-autofill {
     border-bottom: 1px solid var(--glass-brd);
     box-shadow: 0 10px 40px rgba(2,6,23,.5);
 }
+
 .pub-nav-inner {
     max-width: 1180px; margin: 0 auto; padding: 0 24px;
     display: flex; align-items: center; gap: 28px;
 }
+
 .pub-brand {
     display: flex; align-items: center; gap: 12px;
     font-weight: 800; font-size: 16px; white-space: nowrap;
@@ -137,12 +152,14 @@ textarea:-webkit-autofill {
     transition: all .3s var(--ease-smooth);
 }
 .pub-brand:hover { transform: translateY(-1px); }
+
 .pub-brand-logo {
     height: 38px; width: auto; border-radius: 10px; object-fit: contain;
-    transition: transform .3s;
+    transition: transform .3s var(--ease-smooth);
     filter: drop-shadow(0 4px 12px rgba(99,102,241,.3));
 }
-.pub-brand:hover .pub-brand-logo { transform: scale(1.05); }
+.pub-brand:hover .pub-brand-logo { transform: scale(1.08) rotate(-2deg); }
+
 .logo-mark {
     width: 38px; height: 38px;
     border-radius: 10px;
@@ -150,11 +167,26 @@ textarea:-webkit-autofill {
     display: grid; place-items: center;
     color: #fff; font-size: 14px; font-weight: 900;
     box-shadow: 0 8px 20px rgba(99,102,241,.4);
+    position: relative;
+    overflow: hidden;
 }
+.logo-mark::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, transparent 30%, rgba(255,255,255,.2) 50%, transparent 70%);
+    background-size: 200% 200%;
+    animation: shimmer-move 3s linear infinite;
+}
+@keyframes shimmer-move {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
 .pub-nav-links {
     display: flex; gap: 4px; margin-left: auto;
     align-items: center;
 }
+
 .pub-link {
     padding: 9px 14px; border-radius: 10px;
     color: var(--txt-1); font-weight: 600; font-size: 13.5px;
@@ -192,7 +224,9 @@ textarea:-webkit-autofill {
 }
 .pub-burger:hover { background: rgba(255,255,255,.1); border-color: var(--pri); }
 
-/* 5. HERO SECTION */
+/* ============================================================
+   4. HERO SECTION (Cinematic & Immersive)
+   ============================================================ */
 .pub-hero {
     position: relative; z-index: 1; min-height: 100vh;
     display: flex; align-items: center;
@@ -213,6 +247,12 @@ textarea:-webkit-autofill {
     margin-bottom: 24px;
     animation: fade-up .7s both;
 }
+.hero-eyebrow::before {
+    content: ''; width: 8px; height: 8px; border-radius: 50%;
+    background: #22d3ee; box-shadow: 0 0 12px rgba(34,211,238,.6);
+    animation: pulse-dot 2s infinite;
+}
+
 .hero-title {
     font-size: clamp(38px, 5vw, 62px);
     font-weight: 800; line-height: 1.06; letter-spacing: -1.8px;
@@ -228,12 +268,15 @@ textarea:-webkit-autofill {
     -webkit-background-clip: text; background-clip: text;
     -webkit-text-fill-color: transparent;
 }
+
 .hero-sub {
     color: var(--txt-1); font-size: 15.5px; line-height: 1.7;
     max-width: 52ch; margin-bottom: 30px;
     animation: fade-up .7s .2s both;
 }
+
 .hero-cta { display: flex; gap: 12px; flex-wrap: wrap; animation: fade-up .7s .3s both; }
+
 .hero-mini {
     display: flex; gap: 20px; flex-wrap: wrap; margin-top: 26px;
     color: var(--txt-1); font-size: 12.5px; font-weight: 600;
@@ -247,6 +290,7 @@ textarea:-webkit-autofill {
     transition: transform .25s ease-out;
     animation: fade-up .9s .25s both;
 }
+
 .hero-ring {
     position: absolute; inset: 0; margin: auto;
     width: 340px; height: 340px; border-radius: 50%;
@@ -262,8 +306,15 @@ textarea:-webkit-autofill {
 .float-card {
     position: absolute; display: flex; align-items: center; gap: 14px;
     padding: 16px 20px; min-width: 190px;
+    background: var(--glass);
+    backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid var(--glass-brd);
+    border-radius: 16px;
+    box-shadow: 0 20px 50px rgba(2,6,23,.4);
     animation: float-y 6s ease-in-out infinite;
+    transition: transform .3s var(--ease-smooth);
 }
+.float-card:hover { transform: translateY(-4px) scale(1.02); }
 .float-card strong { display: block; font-size: 22px; font-weight: 800; }
 .float-card span { color: var(--txt-1); font-size: 12px; font-weight: 600; }
 .float-card .stat-icon { width: 44px; height: 44px; font-size: 20px; border-radius: 13px; }
@@ -283,31 +334,75 @@ textarea:-webkit-autofill {
     color: var(--txt-1); border: 1px solid var(--glass-brd);
     background: rgba(255,255,255,.04);
     animation: bounce-y 2s infinite;
+    cursor: pointer;
+    transition: all .3s;
+}
+.scroll-hint:hover {
+    background: rgba(99,102,241,.15);
+    border-color: var(--pri);
+    color: #fff;
 }
 @keyframes bounce-y {
     0%,100% { transform: translate(-50%, 0); }
     50% { transform: translate(-50%, 8px); }
 }
 
-/* 6. STATS BAND */
+/* ============================================================
+   5. STATS BAND (Rich & Animated)
+   ============================================================ */
 .pub-stats { position: relative; z-index: 1; max-width: 1180px; margin: -30px auto 0; padding: 0 24px; }
 .stats-band { display: grid; grid-template-columns: repeat(4, 1fr); align-items: center; padding: 28px 10px; }
-.band-item { text-align: center; }
-.band-num { display: block; font-size: 34px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
+.band-item { text-align: center; position: relative; }
+.band-num {
+    display: block; font-size: 34px; font-weight: 800;
+    font-variant-numeric: tabular-nums; letter-spacing: -1px;
+    background: linear-gradient(135deg, var(--pri), var(--acc));
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: count-up 1s ease-out;
+}
 .band-item span { color: var(--txt-1); font-size: 12.5px; font-weight: 600; }
 .band-sep { width: 1px; height: 44px; background: var(--glass-brd); justify-self: center; }
 
-/* 7. SECTION COMMON */
+@keyframes count-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-dot {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(34,211,238,.7); }
+    70% { box-shadow: 0 0 0 8px rgba(34,211,238,0); }
+}
+
+/* ============================================================
+   6. SECTION COMMON
+   ============================================================ */
 .pub-section { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 100px 24px 0; }
 .section-head { text-align: center; margin-bottom: 48px; }
-.section-head h2 { font-size: clamp(28px, 3.4vw, 38px); font-weight: 800; letter-spacing: -1px; margin-bottom: 10px; }
+.section-head h2 {
+    font-size: clamp(28px, 3.4vw, 38px); font-weight: 800;
+    letter-spacing: -1px; margin-bottom: 10px;
+    background: linear-gradient(180deg, #ffffff, #c7d2fe);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
 .section-head p { color: var(--txt-1); font-size: 14.5px; max-width: 56ch; margin: 0 auto; }
 
-/* 8. VISI & MISI */
+/* ============================================================
+   7. VISI & MISI
+   ============================================================ */
 .about-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 22px; }
 .about-card { padding: 32px; transition: transform .3s, box-shadow .3s; }
 .about-card:hover { transform: translateY(-6px); box-shadow: 0 26px 60px rgba(2,6,23,.55); }
-.about-icon { width: 54px; height: 54px; border-radius: 16px; display: grid; place-items: center; font-size: 24px; color: #fff; margin-bottom: 18px; }
+.about-icon {
+    width: 54px; height: 54px; border-radius: 16px;
+    display: grid; place-items: center;
+    font-size: 24px; color: #fff; margin-bottom: 18px;
+    background: linear-gradient(135deg, var(--pri), var(--acc));
+    box-shadow: 0 10px 30px rgba(99,102,241,.4);
+    transition: transform .3s;
+}
+.about-card:hover .about-icon { transform: scale(1.1) rotate(-5deg); }
 .about-card h3 { font-size: 19px; font-weight: 800; margin-bottom: 12px; }
 .about-card p { color: var(--txt-1); font-size: 14px; line-height: 1.75; }
 
@@ -326,7 +421,9 @@ textarea:-webkit-autofill {
     color: #a5b4fc; font-size: 11px; font-weight: 800;
 }
 
-/* 9. PUBLIC EVENTS */
+/* ============================================================
+   8. PUBLIC EVENTS
+   ============================================================ */
 .pub-events { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .pub-event-card { overflow: hidden; display: flex; flex-direction: column; transition: transform .3s, box-shadow .3s; }
 .pub-event-card:hover { transform: translateY(-6px); box-shadow: 0 26px 60px rgba(2,6,23,.55); }
@@ -342,15 +439,28 @@ textarea:-webkit-autofill {
 .pec-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
 .pec-head h3 { font-size: 15px; font-weight: 800; line-height: 1.4; }
 
-/* 10. FEATURES GRID */
+/* ============================================================
+   9. FEATURES GRID
+   ============================================================ */
 .feat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
 .feat-card { padding: 28px 24px; transition: transform .3s, box-shadow .3s; }
 .feat-card:hover { transform: translateY(-6px); box-shadow: 0 26px 60px rgba(2,6,23,.55); }
-.feat-card .stat-icon { width: 50px; height: 50px; font-size: 22px; border-radius: 15px; margin-bottom: 16px; }
+.feat-card .stat-icon {
+    width: 50px; height: 50px; font-size: 22px; border-radius: 15px;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, var(--pri), var(--acc));
+    display: grid; place-items: center;
+    color: #fff;
+    box-shadow: 0 10px 30px rgba(99,102,241,.4);
+    transition: transform .3s;
+}
+.feat-card:hover .stat-icon { transform: scale(1.1) rotate(-5deg); }
 .feat-card h3 { font-size: 15px; font-weight: 800; margin-bottom: 8px; }
 .feat-card p { color: var(--txt-1); font-size: 13px; line-height: 1.65; }
 
-/* 11. PUBLIC CTA */
+/* ============================================================
+   10. PUBLIC CTA
+   ============================================================ */
 .pub-cta { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 100px 24px; }
 .cta-card {
     position: relative; overflow: hidden;
@@ -361,11 +471,25 @@ textarea:-webkit-autofill {
     border: 1px solid var(--glass-brd);
     border-radius: var(--rad-lg);
 }
-.cta-card h2 { font-size: clamp(24px, 3vw, 34px); font-weight: 800; letter-spacing: -1px; margin-bottom: 12px; }
-.cta-card p { color: var(--txt-1); font-size: 14.5px; margin-bottom: 28px; }
-.cta-card .hero-cta { justify-content: center; animation: none; }
+.cta-card::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, transparent 40%, rgba(99,102,241,.1) 50%, transparent 60%);
+    background-size: 200% 200%;
+    animation: shimmer-move 4s linear infinite;
+    pointer-events: none;
+}
+.cta-card h2 {
+    font-size: clamp(24px, 3vw, 34px); font-weight: 800;
+    letter-spacing: -1px; margin-bottom: 12px;
+    position: relative;
+}
+.cta-card p { color: var(--txt-1); font-size: 14.5px; margin-bottom: 28px; position: relative; }
+.cta-card .hero-cta { justify-content: center; animation: none; position: relative; }
 
-/* 12. PUBLIC FOOTER (v7.0 - RICH & PROFESSIONAL) */
+/* ============================================================
+   11. PUBLIC FOOTER (Rich & Professional)
+   ============================================================ */
 .pub-footer {
     position: relative; z-index: 1;
     border-top: 1px solid var(--glass-brd);
@@ -444,7 +568,9 @@ textarea:-webkit-autofill {
     background: linear-gradient(180deg, transparent, rgba(0,0,0,.2));
 }
 
-/* 13. OFFICERS GRID */
+/* ============================================================
+   12. OFFICERS GRID
+   ============================================================ */
 .officer-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
 .officer-card {
     padding: 28px 20px; text-align: center;
@@ -476,7 +602,9 @@ textarea:-webkit-autofill {
     padding: 4px 10px; border-radius: 99px;
 }
 
-/* 14. MARQUEE TESTIMONI */
+/* ============================================================
+   13. MARQUEE TESTIMONI
+   ============================================================ */
 .marquee {
     overflow: hidden; position: relative; padding: 6px 0;
     mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
@@ -498,7 +626,9 @@ textarea:-webkit-autofill {
 
 @keyframes marquee { to { transform: translateX(-50%); } }
 
-/* 15. GALLERY MASONRY + LIGHTBOX */
+/* ============================================================
+   14. GALLERY MASONRY + LIGHTBOX
+   ============================================================ */
 .masonry { columns: 3; column-gap: 18px; }
 .masonry-item {
     break-inside: avoid; margin: 0 0 18px;
@@ -519,7 +649,7 @@ textarea:-webkit-autofill {
 }
 .masonry-item:hover figcaption { opacity: 1; }
 
-/* LIGHTBOX: default display:none, hanya muncul saat .show */
+/* LIGHTBOX */
 .lightbox {
     position: fixed; inset: 0; z-index: 120;
     background: rgba(4,8,20,.92); backdrop-filter: blur(10px);
@@ -554,7 +684,9 @@ textarea:-webkit-autofill {
     to   { transform: scale(1); opacity: 1; }
 }
 
-/* 16. SENSUS PUBLIC */
+/* ============================================================
+   15. SENSUS PUBLIC
+   ============================================================ */
 .census-band {
     display: flex; align-items: center; justify-content: space-between; gap: 30px;
     padding: 46px; position: relative; overflow: hidden;
@@ -566,7 +698,9 @@ textarea:-webkit-autofill {
 .census-copy p { color: var(--txt-1); font-size: 14px; max-width: 56ch; }
 .sensus-wrap { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; padding: 0 24px 90px; }
 
-/* 17. PUBLIC ARTIKEL LISTING + DETAIL */
+/* ============================================================
+   16. PUBLIC ARTIKEL LISTING + DETAIL
+   ============================================================ */
 .cat-chips { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin: 0 0 44px; position: relative; z-index: 1; }
 .chip {
     padding: 8px 16px; border-radius: 99px;
@@ -582,7 +716,13 @@ textarea:-webkit-autofill {
 }
 
 .pub-page-head { text-align: center; padding: 150px 24px 44px; position: relative; z-index: 1; }
-.pub-page-head h1 { font-size: clamp(30px, 4vw, 44px); font-weight: 800; letter-spacing: -1px; margin-bottom: 10px; }
+.pub-page-head h1 {
+    font-size: clamp(30px, 4vw, 44px); font-weight: 800;
+    letter-spacing: -1px; margin-bottom: 10px;
+    background: linear-gradient(180deg, #ffffff, #c7d2fe);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
 .pub-page-head p { color: var(--txt-1); max-width: 56ch; margin: 0 auto; font-size: 14.5px; }
 
 .pub-articles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
@@ -619,7 +759,13 @@ textarea:-webkit-autofill {
 .back-link { display: inline-flex; gap: 8px; align-items: center; color: var(--txt-1); font-weight: 700; font-size: 13px; margin-bottom: 26px; transition: all .2s var(--ease-smooth); }
 .back-link:hover { color: #fff; transform: translateX(-3px); }
 .detail-head .chip { display: inline-flex; margin-bottom: 16px; }
-.detail-head h1 { font-size: clamp(28px, 3.6vw, 40px); font-weight: 800; letter-spacing: -1px; line-height: 1.15; margin-bottom: 16px; }
+.detail-head h1 {
+    font-size: clamp(28px, 3.6vw, 40px); font-weight: 800;
+    letter-spacing: -1px; line-height: 1.15; margin-bottom: 16px;
+    background: linear-gradient(180deg, #ffffff, #c7d2fe);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
 .detail-meta { display: flex; gap: 18px; flex-wrap: wrap; color: var(--txt-1); font-size: 12.5px; font-weight: 600; margin-bottom: 26px; }
 .detail-meta span { display: inline-flex; gap: 7px; align-items: center; }
 .detail-meta i { color: var(--acc); }
@@ -639,7 +785,9 @@ textarea:-webkit-autofill {
 .related-block h3 { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 800; margin-bottom: 18px; }
 .related-block h3 i { color: var(--acc); }
 
-/* 18. PUBLIC BUTTONS */
+/* ============================================================
+   17. PUBLIC BUTTONS
+   ============================================================ */
 .btn {
     position: relative; overflow: hidden;
     border: 0; cursor: pointer; font: inherit;
@@ -679,7 +827,9 @@ textarea:-webkit-autofill {
     border-radius: 50%; animation: spin .7s linear infinite;
 }
 
-/* 19. PUBLIC FORMS */
+/* ============================================================
+   18. PUBLIC FORMS
+   ============================================================ */
 .field { display: block; margin-bottom: 14px; }
 .field:last-child { margin-bottom: 0; }
 .field-label {
@@ -706,11 +856,15 @@ textarea { resize: vertical; min-height: 60px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .field-row .field { margin-bottom: 0; }
 
-/* 20. SCROLL REVEAL */
+/* ============================================================
+   19. SCROLL REVEAL
+   ============================================================ */
 .reveal { opacity: 0; transform: translateY(28px); transition: opacity .7s var(--ease-smooth), transform .7s var(--ease-smooth); }
 .reveal.revealed { opacity: 1; transform: none; }
 
-/* 21. KEYFRAMES */
+/* ============================================================
+   20. KEYFRAMES
+   ============================================================ */
 @keyframes fade-up {
     from { opacity: 0; transform: translateY(18px); }
     to   { opacity: 1; transform: translateY(0); }
@@ -718,7 +872,13 @@ textarea { resize: vertical; min-height: 60px; }
 @keyframes ripple { to { transform: scale(4); opacity: 0; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* 22. RESPONSIVE (v7.0) */
+/* ============================================================
+   21. RESPONSIVE (v7.0 ULTIMATE)
+   ============================================================ */
+@media (max-width: 1080px) {
+    .feat-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
 @media (max-width: 980px) {
     .hero-inner { grid-template-columns: 1fr; gap: 40px; }
     .hero-visual { height: 360px; }
@@ -747,6 +907,8 @@ textarea { resize: vertical; min-height: 60px; }
 
 @media (max-width: 720px) {
     .field-row { grid-template-columns: 1fr; }
+    .hero-mini { flex-direction: column; gap: 12px; }
+    .cta-card { padding: 48px 24px; }
 }
 
 @media (max-width: 560px) {
@@ -755,4 +917,28 @@ textarea { resize: vertical; min-height: 60px; }
     .float-card-2 { right: -6px; }
     .officer-grid { grid-template-columns: 1fr; }
     .masonry { columns: 1; }
+    .hero-cta { flex-direction: column; }
+    .hero-cta .btn { width: 100%; justify-content: center; }
+    .pub-navbar { padding: 14px 0; }
+    .pub-navbar.scrolled { padding: 10px 0; }
+}
+
+@media (max-width: 420px) {
+    .stats-band { grid-template-columns: 1fr; }
+    .hero-title { font-size: 32px; }
+    .section-head h2 { font-size: 24px; }
+}
+
+/* ============================================================
+   22. PRINT STYLES
+   ============================================================ */
+@media print {
+    .pub-navbar, .pub-footer, .scroll-hint, .lightbox { display: none !important; }
+    body.public-body { background: #fff !important; color: #000 !important; }
+    .glass-card {
+        background: #fff !important;
+        backdrop-filter: none !important;
+        border: 1px solid #ddd !important;
+        box-shadow: none !important;
+    }
 }

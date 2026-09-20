@@ -660,3 +660,26 @@ if (!function_exists('str_contains_any')) {
         return false;
     }
 }
+
+if (!function_exists('setting')) {
+    /**
+     * Get setting value dengan fallback.
+     * Helper ini dipanggil oleh layout views.
+     *
+     * @param string $key Setting key
+     * @param mixed $default Default value jika tidak ada
+     * @return mixed
+     */
+    function setting(string $key, mixed $default = ''): mixed
+    {
+        try {
+            if (class_exists('\Models\Setting')) {
+                \Models\Setting::loadAll();
+                return \Models\Setting::get($key, $default);
+            }
+        } catch (\Throwable $e) {
+            error_log('[Helper setting()] Failed: ' . $e->getMessage());
+        }
+        return $default;
+    }
+}
