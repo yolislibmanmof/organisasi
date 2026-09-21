@@ -557,13 +557,7 @@ class Gallery
         $years = count(self::uniqueYears());
         $locations = count(self::uniqueLocations());
 
-        $thisYear = (int) $db->prepare(
-            'SELECT COUNT(*) FROM galleries WHERE YEAR(event_date) = YEAR(CURDATE())'
-        )->execute() ? (int) $db->query(
-            'SELECT COUNT(*) FROM galleries WHERE YEAR(event_date) = YEAR(CURDATE())'
-        )->fetchColumn() : 0;
-
-        // Fix: query directly
+        // Query this_year (clean & single execution)
         $stmt = $db->prepare('SELECT COUNT(*) FROM galleries WHERE YEAR(event_date) = YEAR(CURDATE())');
         $stmt->execute();
         $thisYear = (int) $stmt->fetchColumn();

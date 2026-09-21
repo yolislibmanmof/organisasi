@@ -127,15 +127,18 @@
        ============================================================ */
     function animateNum(el, target) {
         if (!el || target === undefined || target === null) return;
-        const start = parseInt(el.textContent, 10) || 0;
-        if (start === target) { el.textContent = target; return; }
+        target = parseInt(target, 10) || 0;
+        // Strip non-digits agar bisa parse "1,000" dengan benar
+        const start = parseInt(String(el.textContent).replace(/[^\d]/g, ''), 10) || 0;
+        if (start === target) { el.textContent = target.toLocaleString('id-ID'); return; }
         const t0 = performance.now(), dur = 700;
         const tick = (t) => {
             const p = Math.min(1, (t - t0) / dur);
             const eased = 1 - Math.pow(1 - p, 4);
-            el.textContent = Math.floor(start + (target - start) * eased);
+            const val = Math.floor(start + (target - start) * eased);
+            el.textContent = val.toLocaleString('id-ID');
             if (p < 1) requestAnimationFrame(tick);
-            else el.textContent = target;
+            else el.textContent = target.toLocaleString('id-ID');
         };
         requestAnimationFrame(tick);
     }
@@ -297,7 +300,7 @@
                     const rect = this.getBoundingClientRect();
                     const rotateX = (e.clientY - rect.top - rect.height / 2) / 30;
                     const rotateY = (rect.width / 2 - (e.clientX - rect.left)) / 30;
-                    this.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateX(6px)`;
+                    this.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(6px)`;
                 });
             });
             card.addEventListener('mouseleave', function() {
@@ -360,6 +363,7 @@
         if ($('eDate')) $('eDate').value = new Date().toISOString().slice(0, 10);
         if ($('eventModalTitle')) $('eventModalTitle').textContent = 'Buat Event Baru';
         resetCoverPreview();
+        updateDescCounter();  // ← TAMBAHKAN BARIS INI
         openModal(modal);
         setTimeout(() => $('eTitle')?.focus(), 300);
     };
@@ -464,11 +468,18 @@
        12. DESCRIPTION COUNTER
        ============================================================ */
     function updateDescCounter() {
-        const desc = $('eDesc'), counter = $('eDescCounter');
+        const desc = $('eDesc'), counter = $('eDescCounter'), bar = $('eDescBar');
         if (!desc || !counter) return;
+        const max = 1000;  // Sesuai maxlength di HTML
         const len = desc.value.length;
-        counter.textContent = len + '/5000';
-        counter.style.color = len > 4500 ? 'var(--warn)' : 'var(--txt-2)';
+        const pct = Math.min(100, (len / max) * 100);
+        counter.textContent = len + ' / ' + max;
+        if (bar) bar.style.width = pct + '%';
+
+        counter.className = 'char-counter';
+        if (bar) bar.className = 'char-progress-fill';
+        if (len > max * 0.85) { counter.classList.add('warn'); if (bar) bar.classList.add('warn'); }
+        if (len > max * 0.95) { counter.classList.add('danger'); if (bar) bar.classList.add('danger'); }
     }
     $('eDesc')?.addEventListener('input', updateDescCounter);
 

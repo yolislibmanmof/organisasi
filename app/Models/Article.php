@@ -421,14 +421,16 @@ class Article
     }
 
     /**
-     * List artikel untuk admin (dengan filter status + search + pagination).
+     * List artikel untuk admin (dengan filter status + search + pagination + sort).
      */
     public static function adminList(
         string $status = '',
         string $search = '',
         string $category = '',
         int $page = 1,
-        int $perPage = 10
+        int $perPage = 10,
+        string $sort = 'created_at',
+        string $order = 'desc'
     ): array {
         $offset = ($page - 1) * $perPage;
         $params = [];
@@ -460,7 +462,20 @@ class Article
             $sql .= ' WHERE ' . implode(' AND ', $where);
         }
 
-        $sql .= ' ORDER BY a.created_at DESC LIMIT ' . (int) $perPage . ' OFFSET ' . (int) $offset;
+        // Safe sort — whitelist kolom yang boleh di-sort
+        $sortWhitelist = ['created_at', 'title', 'category', 'views', 'author_name'];
+        $sortColumn = in_array($sort, $sortWhitelist, true) ? $sort : 'created_at';
+        
+        // Map column ke table prefix
+        if ($sortColumn === 'author_name') {
+            $sortColumn = 'u.username';
+        } else {
+            $sortColumn = 'a.' . $sortColumn;
+        }
+        
+        $order = strtolower($order) === 'asc' ? 'ASC' : 'DESC';
+
+        $sql .= " ORDER BY $sortColumn $order LIMIT " . (int) $perPage . ' OFFSET ' . (int) $offset;
 
         $stmt = Database::getInstance()->prepare($sql);
         $stmt->execute($params);

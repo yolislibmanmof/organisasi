@@ -145,7 +145,7 @@
     }
 
     /* ============================================================
-       3. STATS MINI CARDS (v7.0)
+       3. STATS MINI CARDS (v7.0 - PATCHED with count-up)
        ============================================================ */
     function renderStats(stats) {
         if (!els.stats) return;
@@ -159,11 +159,30 @@
             <div class="mini-stat glass-card" style="animation-delay:${i * 60}ms">
                 <div class="stat-icon ${s.grad}"><i class="ph ${s.icon}"></i></div>
                 <div>
-                    <strong data-count="${s.value}">${s.value.toLocaleString('id-ID')}</strong>
+                    <strong data-count="${s.value}">0</strong>
                     <span>${s.label}</span>
                 </div>
             </div>
         `).join('');
+
+        // Animasikan count-up untuk setiap angka stats
+        els.stats.querySelectorAll('strong[data-count]').forEach((el, idx) => {
+            const target = parseInt(el.dataset.count, 10) || 0;
+            if (target === 0) {
+                el.textContent = '0';
+                return;
+            }
+            const t0 = performance.now();
+            const dur = 900 + (idx * 80); // Stagger per stat
+            const tick = (t) => {
+                const p = Math.min(1, (t - t0) / dur);
+                const eased = 1 - Math.pow(1 - p, 3); // Ease-out cubic
+                el.textContent = Math.floor(target * eased).toLocaleString('id-ID');
+                if (p < 1) requestAnimationFrame(tick);
+                else el.textContent = target.toLocaleString('id-ID');
+            };
+            requestAnimationFrame(tick);
+        });
     }
 
     /* ============================================================
@@ -371,14 +390,15 @@
             btn.classList.add('is-loading');
             try {
                 const endpoint = action === 'delete' ? 'bulk-delete' : 'bulk-status';
-                const body = action === 'delete'
-                    ? { ids: ids.map(Number) }
-                    : { ids: ids.map(Number), status: action === 'publish' ? 'published' : 'draft' };
-
+                const fd = new FormData();
+                fd.append('csrf_token', csrf());
+                ids.forEach(id => fd.append('ids[]', id));
+                if (action !== 'delete') {
+                    fd.append('status', action === 'publish' ? 'published' : 'draft');
+                }
                 const res = await fetch(BASE + 'articles/' + endpoint, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...body, csrf_token: csrf() })
+                    body: fd
                 });
                 const json = await res.json();
                 toast(json.message || 'Selesai', json.ok ? 'success' : 'error');
@@ -494,31 +514,38 @@
     $('emptyAddArticle')?.addEventListener('click', openAddModal);
 
     /* ============================================================
-       11. CHARACTER & WORD COUNTERS (v7.0)
+       11. CHARACTER & WORD COUNTERS (v7.0 - PATCHED)
        ============================================================ */
+    let countersBound = false;
     const updateCounters = () => {
         const excerpt = $('aExcerpt');
         const content = $('aContent');
         const excerptCounter = $('excerptCounter');
         const contentCounter = $('contentCounter');
 
-        if (excerpt && excerptCounter) {
-            excerpt.addEventListener('input', () => {
-                const len = excerpt.value.length;
-                excerptCounter.textContent = len + '/300';
-                excerptCounter.style.color = len > 300 ? 'var(--danger-2)' : 'var(--txt-2)';
-            });
-            excerpt.dispatchEvent(new Event('input'));
+        if (!countersBound) {
+            countersBound = true;
+
+            if (excerpt && excerptCounter) {
+                excerpt.addEventListener('input', () => {
+                    const len = excerpt.value.length;
+                    excerptCounter.textContent = len + '/300';
+                    excerptCounter.style.color = len > 300 ? 'var(--danger-2)' : 'var(--txt-2)';
+                });
+            }
+
+            if (content && contentCounter) {
+                content.addEventListener('input', () => {
+                    const words = content.value.trim().split(/\s+/).filter(Boolean).length;
+                    const readTime = Math.max(1, Math.ceil(words / 200));
+                    contentCounter.textContent = words + ' kata · ~' + readTime + ' menit baca';
+                });
+            }
         }
 
-        if (content && contentCounter) {
-            content.addEventListener('input', () => {
-                const words = content.value.trim().split(/\s+/).filter(Boolean).length;
-                const readTime = Math.max(1, Math.ceil(words / 200));
-                contentCounter.textContent = words + ' kata · ~' + readTime + ' menit baca';
-            });
-            content.dispatchEvent(new Event('input'));
-        }
+        // Trigger update setiap modal dibuka
+        excerpt?.dispatchEvent(new Event('input'));
+        content?.dispatchEvent(new Event('input'));
     };
 
     /* ============================================================

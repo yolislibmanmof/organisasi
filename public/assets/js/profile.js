@@ -310,6 +310,10 @@
     /* ============================================================
        8. SESSION MANAGEMENT (Revoke Other Sessions)
        ============================================================ */
+    const csrf = () =>
+        document.querySelector('input[name="csrf_token"]')?.value ||
+        window.CSRF_TOKEN || '';
+
     document.querySelectorAll('[data-revoke-session]').forEach(btn => {
         btn.addEventListener('click', async () => {
             const sid = btn.dataset.revokeSession;
@@ -319,6 +323,7 @@
             try {
                 const fd = new FormData();
                 fd.append('session_id', sid);
+                fd.append('csrf_token', csrf());
                 const res = await fetch(api('profile/revoke-session'), { method: 'POST', body: fd });
                 const json = await res.json();
                 btn.classList.remove('is-loading');
@@ -343,7 +348,9 @@
         if (!confirm('Cabut SEMUA sesi lain? Anda hanya akan tetap login di perangkat ini.')) return;
         this.classList.add('is-loading');
         try {
-            const res = await fetch(api('profile/revoke-all'), { method: 'POST' });
+            const fd = new FormData();
+            fd.append('csrf_token', csrf());
+            const res = await fetch(api('profile/revoke-all'), { method: 'POST', body: fd });
             const json = await res.json();
             this.classList.remove('is-loading');
             toast(json.message, json.ok ? 'success' : 'error');
@@ -362,6 +369,22 @@
         this.classList.add('is-loading');
         try {
             const res = await fetch(api('profile/export'));
+            
+            // Cek apakah response adalah JSON atau file
+            const contentType = res.headers.get('content-type') || '';
+            if (!res.ok) {
+                throw new Error('HTTP ' + res.status);
+            }
+            
+            // Jika response adalah JSON error, parse dan tampilkan
+            if (contentType.includes('application/json')) {
+                const json = await res.json();
+                if (!json.ok) {
+                    throw new Error(json.message || 'Gagal mengekspor data');
+                }
+            }
+            
+            // Jika response adalah file/blob, download
             const blob = await res.blob();
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -370,8 +393,8 @@
             a.click();
             URL.revokeObjectURL(url);
             toast('Data pribadi berhasil diunduh.', 'success');
-        } catch {
-            toast('Gagal mengekspor data.', 'error');
+        } catch (err) {
+            toast(err.message || 'Gagal mengekspor data.', 'error');
         } finally {
             this.classList.remove('is-loading');
         }

@@ -75,7 +75,7 @@
     /* ============================================================
        4. CARD 3D TILT EFFECT (Performance Optimized)
        ============================================================ */
-    document.querySelectorAll('.stat-card, .glass-card').forEach(card => {
+    document.querySelectorAll('.stat-card, .glass-card:not(.modal):not(.share-modal-card):not(.command-palette-modal)').forEach(card => {
         let rafId = null;
         card.addEventListener('mousemove', function(e) {
             if (rafId) cancelAnimationFrame(rafId);
@@ -159,7 +159,7 @@
         });
     }, { threshold: 0.3 });
 
-    document.querySelectorAll('.stat-num[data-count], .band-num[data-count]').forEach(el => {
+    document.querySelectorAll('[data-count]').forEach(el => {
         observer.observe(el);
     });
 
@@ -397,6 +397,7 @@
     document.addEventListener('keydown', (e) => {
         if ((e.metaKey || e.ctrlKey) && e.key === '/') {
             e.preventDefault();
+            if (document.querySelector('.shortcuts-overlay')) return;
             const overlay = document.createElement('div');
             overlay.className = 'shortcuts-overlay';
             overlay.innerHTML = `

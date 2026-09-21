@@ -97,6 +97,7 @@
        3. TAB SWITCHING (Smooth + Persisted)
        ============================================================ */
     const tabBtns = document.querySelectorAll('.content-tab');
+    let isSwitchingTab = false;
 
     function switchTab(newType, silent = false) {
         type = newType;
@@ -111,7 +112,8 @@
 
     tabBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            if (btn.dataset.tab === type) return;
+            if (btn.dataset.tab === type || isSwitchingTab) return;
+            isSwitchingTab = true;
             grid.style.transition = 'opacity .25s, transform .25s';
             grid.style.opacity = '0';
             grid.style.transform = 'translateY(10px)';
@@ -120,6 +122,7 @@
                 setTimeout(() => {
                     grid.style.opacity = '1';
                     grid.style.transform = 'translateY(0)';
+                    isSwitchingTab = false;
                 }, 60);
             }, 200);
         });
@@ -154,9 +157,10 @@
         abortCtrl = new AbortController();
 
         const params = new URLSearchParams({ per_page: '100' });
-        if (state.q)      params.set('q', state.q);
-        if (state.status) params.set('status', state.status);
-        if (state.year)   params.set('year', state.year);
+        if (state.q)        params.set('q', state.q);
+        if (state.status)   params.set('status', state.status);
+        if (state.year)     params.set('year', state.year);
+        if (state.division) params.set('division', state.division);
 
         try {
             const json = await fetchJSON(api('api/content/' + type + '?' + params.toString()), {
@@ -208,15 +212,35 @@
 
     function renderStats() {
         if (!statsEl) return;
-        statsEl.innerHTML = computeStats().map((s, i) => `
+        const stats = computeStats();
+        statsEl.innerHTML = stats.map((s, i) => `
             <div class="mini-stat glass-card" style="animation-delay:${i * 60}ms">
                 <div class="stat-icon ${s.grad}"><i class="ph ${s.icon}"></i></div>
                 <div>
-                    <strong>${s.value.toLocaleString('id-ID')}</strong>
+                    <strong data-count="${s.value}">0</strong>
                     <span>${s.label}</span>
                 </div>
             </div>
         `).join('');
+
+        // Animasikan count-up
+        statsEl.querySelectorAll('strong[data-count]').forEach((el, idx) => {
+            const target = parseInt(el.dataset.count, 10) || 0;
+            if (target === 0) {
+                el.textContent = '0';
+                return;
+            }
+            const t0 = performance.now();
+            const dur = 900 + (idx * 80);
+            const tick = (t) => {
+                const p = Math.min(1, (t - t0) / dur);
+                const eased = 1 - Math.pow(1 - p, 3);
+                el.textContent = Math.floor(target * eased).toLocaleString('id-ID');
+                if (p < 1) requestAnimationFrame(tick);
+                else el.textContent = target.toLocaleString('id-ID');
+            };
+            requestAnimationFrame(tick);
+        });
     }
 
     /* ============================================================
@@ -393,6 +417,9 @@
        9. LIGHTBOX (Dynamic)
        ============================================================ */
     let lightboxEl = null;
+    let lightboxCloseHandler = null;
+    let lightboxBackdropHandler = null;
+
     function openLightbox(src, caption) {
         closeLightbox();
         lightboxEl = document.createElement('div');
@@ -404,13 +431,29 @@
         `;
         document.body.appendChild(lightboxEl);
         document.body.style.overflow = 'hidden';
-        lightboxEl.querySelector('.lightbox-close').addEventListener('click', closeLightbox);
-        lightboxEl.addEventListener('click', (e) => { if (e.target === lightboxEl) closeLightbox(); });
+        
+        // Simpan reference handler untuk cleanup
+        lightboxCloseHandler = closeLightbox;
+        lightboxBackdropHandler = (e) => { if (e.target === lightboxEl) closeLightbox(); };
+        
+        lightboxEl.querySelector('.lightbox-close').addEventListener('click', lightboxCloseHandler);
+        lightboxEl.addEventListener('click', lightboxBackdropHandler);
     }
+
     function closeLightbox() {
         if (lightboxEl) {
+            // Remove event listeners sebelum remove element
+            const closeBtn = lightboxEl.querySelector('.lightbox-close');
+            if (closeBtn && lightboxCloseHandler) {
+                closeBtn.removeEventListener('click', lightboxCloseHandler);
+            }
+            if (lightboxBackdropHandler) {
+                lightboxEl.removeEventListener('click', lightboxBackdropHandler);
+            }
             lightboxEl.remove();
             lightboxEl = null;
+            lightboxCloseHandler = null;
+            lightboxBackdropHandler = null;
             document.body.style.overflow = '';
         }
     }

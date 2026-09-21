@@ -187,7 +187,7 @@
             renderRows(state.currentData, json.meta || {});
             renderStats(json.stats || json.meta || {});
             renderFilterChips(json.stats || {});
-            updateSummaries(json.meta?.total || 0);
+            updateSummaries(json.meta || {}, json.stats || {});
         } catch (err) {
             if (err.name === 'AbortError') return;
             els.rows.innerHTML = `
@@ -218,11 +218,30 @@
             <div class="mini-stat glass-card" style="animation-delay:${i * 60}ms">
                 <div class="stat-icon ${item.grad}"><i class="ph ${item.icon}"></i></div>
                 <div>
-                    <strong data-count="${item.value}">${item.value.toLocaleString('id-ID')}</strong>
+                    <strong data-count="${item.value}">0</strong>
                     <span>${item.label}</span>
                 </div>
             </div>
         `).join('');
+
+        // Animasikan count-up untuk setiap angka stats
+        els.stats.querySelectorAll('strong[data-count]').forEach((el, idx) => {
+            const target = parseInt(el.dataset.count, 10) || 0;
+            if (target === 0) {
+                el.textContent = '0';
+                return;
+            }
+            const t0 = performance.now();
+            const dur = 900 + (idx * 80);
+            const tick = (t) => {
+                const p = Math.min(1, (t - t0) / dur);
+                const eased = 1 - Math.pow(1 - p, 3);
+                el.textContent = Math.floor(target * eased).toLocaleString('id-ID');
+                if (p < 1) requestAnimationFrame(tick);
+                else el.textContent = target.toLocaleString('id-ID');
+            };
+            requestAnimationFrame(tick);
+        });
     }
 
     /* ============================================================
@@ -254,10 +273,14 @@
     /* ============================================================
        8. SUMMARIES ANIMATION
        ============================================================ */
-    function updateSummaries(total) {
+    function updateSummaries(meta, stats) {
+        const total   = meta?.total || state.total || 0;
+        const active  = stats?.active || 0;
+        const newMonth = stats?.new_month || 0;
+
         if (els.miniTotal)  animateNum(els.miniTotal, total);
-        if (els.miniActive) animateNum(els.miniActive, total);
-        if (els.miniNew)    animateNum(els.miniNew, Math.min(total, Math.floor(total * 0.2)));
+        if (els.miniActive) animateNum(els.miniActive, active);
+        if (els.miniNew)    animateNum(els.miniNew, newMonth);
         if (els.badge) {
             const oldVal = parseInt(els.badge.textContent, 10) || 0;
             animateNum(els.badge, total);
@@ -771,16 +794,21 @@
     /* ============================================================
        18. CHARACTER COUNTER (Alamat)
        ============================================================ */
+    let countersBound = false;
     function updateCounters() {
         const addr = $('fAddress'), counter = $('fAddressCounter');
         if (!addr || !counter) return;
-        const update = () => {
-            const len = addr.value.length;
-            counter.textContent = len + '/500';
-            counter.style.color = len > 500 ? 'var(--danger-2)' : (len > 450 ? 'var(--warn)' : 'var(--txt-2)');
-        };
-        addr.addEventListener('input', update);
-        update();
+        
+        if (!countersBound) {
+            countersBound = true;
+            addr.addEventListener('input', () => {
+                const len = addr.value.length;
+                counter.textContent = len + '/500';
+                counter.style.color = len > 500 ? 'var(--danger-2)' : (len > 450 ? 'var(--warn)' : 'var(--txt-2)');
+            });
+        }
+        // Trigger update setiap modal dibuka
+        addr.dispatchEvent(new Event('input'));
     }
 
     /* ============================================================

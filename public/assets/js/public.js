@@ -191,6 +191,11 @@
         const resize = () => {
             w = canvas.width = window.innerWidth;
             h = canvas.height = window.innerHeight;
+            // Reposition particles within new bounds
+            pts.forEach(p => {
+                if (p.x > w) p.x = Math.random() * w;
+                if (p.y > h) p.y = Math.random() * h;
+            });
         };
         resize();
         window.addEventListener('resize', resize);
@@ -268,6 +273,8 @@
        8. PARALLAX MULTI-LAYER (Hero Only, Optimized)
        ============================================================ */
     const visual = document.getElementById('heroVisual');
+    const cardTransforms = new Map(); // Store parallax offsets
+    
     if (visual && !isTablet) {
         let rafId = null;
         window.addEventListener('mousemove', (e) => {
@@ -280,17 +287,27 @@
                 const cards = visual.querySelectorAll('.float-card');
                 cards.forEach((card, i) => {
                     const depth = (i + 1) * 0.6;
-                    card.style.transform = `translate(${x * depth}px, ${y * depth}px)`;
+                    const px = x * depth;
+                    const py = y * depth;
+                    cardTransforms.set(card, { px, py });
+                    
+                    // Only apply parallax if not being tilted
+                    if (!card.classList.contains('is-tilting')) {
+                        card.style.transform = `translate(${px}px, ${py}px)`;
+                    }
                 });
             });
         });
     }
 
     /* ============================================================
-       9. 3D TILT ON HERO CARDS (Smooth)
+       9. 3D TILT ON HERO CARDS (Smooth - Combined with Parallax)
        ============================================================ */
     document.querySelectorAll('.float-card').forEach(card => {
         let rafId = null;
+        card.addEventListener('mouseenter', function() {
+            this.classList.add('is-tilting');
+        });
         card.addEventListener('mousemove', function(e) {
             if (rafId) cancelAnimationFrame(rafId);
             rafId = requestAnimationFrame(() => {
@@ -301,12 +318,18 @@
                 const centerY = rect.height / 2;
                 const rotateX = (y - centerY) / 15;
                 const rotateY = (centerX - x) / 15;
-                this.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(20px)`;
+                
+                // Combine parallax offset with 3D tilt
+                const parallax = cardTransforms.get(this) || { px: 0, py: 0 };
+                this.style.transform = `translate(${parallax.px}px, ${parallax.py}px) perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(20px)`;
             });
         });
         card.addEventListener('mouseleave', function() {
             if (rafId) cancelAnimationFrame(rafId);
-            this.style.transform = '';
+            this.classList.remove('is-tilting');
+            // Restore parallax transform
+            const parallax = cardTransforms.get(this) || { px: 0, py: 0 };
+            this.style.transform = `translate(${parallax.px}px, ${parallax.py}px)`;
         });
     });
 
@@ -524,33 +547,54 @@
     });
 
     /* ============================================================
-       17. ANNOUNCEMENT BAR (Auto-hide)
+       17. ANNOUNCEMENT BAR (Auto-hide - Improved)
        ============================================================ */
     const announcement = document.querySelector('[data-announcement]');
     if (announcement) {
-        const closeBtn = announcement.querySelector('[data-close-announcement]');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => {
-                announcement.style.transform = 'translateY(-100%)';
-                setTimeout(() => announcement.remove(), 300);
-                try {
-                    localStorage.setItem('announcement_dismissed', '1');
-                } catch (e) { /* Silent */ }
+        // Check if previously dismissed
+        let dismissed = false;
+        try {
+            dismissed = localStorage.getItem('announcement_dismissed') === '1';
+        } catch (e) { /* Silent */ }
+        
+        if (dismissed) {
+            announcement.style.display = 'none';
+        } else {
+            const closeBtn = announcement.querySelector('[data-close-announcement]');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => {
+                    announcement.style.transform = 'translateY(-100%)';
+                    setTimeout(() => announcement.remove(), 300);
+                    try {
+                        localStorage.setItem('announcement_dismissed', '1');
+                    } catch (e) { /* Silent */ }
+                });
+            }
+
+            // Auto-hide after 30 seconds (more generous) if user scrolled significantly
+            let scrolled = false;
+            let autoHideTimer = null;
+            window.addEventListener('scroll', () => {
+                if (!scrolled && window.scrollY > 300) {
+                    scrolled = true;
+                    // Start timer only if announcement is still visible
+                    autoHideTimer = setTimeout(() => {
+                        if (announcement && announcement.style.display !== 'none') {
+                            announcement.style.transform = 'translateY(-100%)';
+                            setTimeout(() => announcement.remove(), 300);
+                        }
+                    }, 30000);
+                }
+            }, { passive: true });
+            
+            // Pause auto-hide on hover
+            announcement.addEventListener('mouseenter', () => {
+                if (autoHideTimer) {
+                    clearTimeout(autoHideTimer);
+                    autoHideTimer = null;
+                }
             });
         }
-
-        // Auto-hide after 10 seconds if user scrolled
-        let scrolled = false;
-        window.addEventListener('scroll', () => {
-            if (!scrolled && window.scrollY > 100) {
-                scrolled = true;
-                setTimeout(() => {
-                    if (announcement && !announcement.classList.contains('show')) {
-                        announcement.style.transform = 'translateY(-100%)';
-                    }
-                }, 10000);
-            }
-        }, { passive: true });
     }
 
     /* ============================================================

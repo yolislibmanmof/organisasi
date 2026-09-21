@@ -160,11 +160,30 @@
             <div class="mini-stat glass-card" style="animation-delay:${i * 60}ms">
                 <div class="stat-icon ${s.grad}"><i class="ph ${s.icon}"></i></div>
                 <div>
-                    <strong data-count="${s.value}">${s.value.toLocaleString('id-ID')}</strong>
+                    <strong data-count="${s.value}">0</strong>
                     <span>${s.label}</span>
                 </div>
             </div>
         `).join('');
+
+        // Animasikan count-up
+        els.stats.querySelectorAll('strong[data-count]').forEach((el, idx) => {
+            const target = parseInt(el.dataset.count, 10) || 0;
+            if (target === 0) {
+                el.textContent = '0';
+                return;
+            }
+            const t0 = performance.now();
+            const dur = 900 + (idx * 80);
+            const tick = (t) => {
+                const p = Math.min(1, (t - t0) / dur);
+                const eased = 1 - Math.pow(1 - p, 3);
+                el.textContent = Math.floor(target * eased).toLocaleString('id-ID');
+                if (p < 1) requestAnimationFrame(tick);
+                else el.textContent = target.toLocaleString('id-ID');
+            };
+            requestAnimationFrame(tick);
+        });
 
         // Update new count di topbar
         if (els.newCount) {
@@ -414,7 +433,7 @@
                 const endpoint = action === 'approve' ? 'bulk-approve' : 'bulk-delete';
                 const fd = new FormData();
                 fd.append('csrf_token', TOKEN);
-                fd.append('ids', JSON.stringify(ids.map(Number)));
+                ids.forEach(id => fd.append('ids[]', id));
 
                 const res = await fetch(PAGE(endpoint), { method: 'POST', body: fd });
                 const json = await res.json();
@@ -457,8 +476,14 @@
     /* ============================================================
        9. DETAIL MODAL (v7.0)
        ============================================================ */
+    let detailModalHandlers = [];
+
     function openDetailModal(item) {
         if (!els.detailModal || !els.detailBody) return;
+
+        // Cleanup listeners lama
+        cleanupDetailModalListeners();
+
         const p = PURPOSE[item.purpose] || PURPOSE.sensus;
 
         els.detailBody.innerHTML = `
@@ -507,14 +532,29 @@
         els.detailModal.classList.add('show');
         document.body.style.overflow = 'hidden';
 
-        // Re-bind close
-        els.detailModal.querySelectorAll('[data-close-modal]').forEach(b =>
-            b.addEventListener('click', closeDetailModal));
-        els.detailModal.querySelector('[data-act="approve-from-modal"]')?.addEventListener('click', function() {
-            const btn = this;
-            btn.classList.add('is-loading');
-            handleApprove(btn.dataset.id, btn, closeDetailModal);
+        // Bind close dengan tracking
+        els.detailModal.querySelectorAll('[data-close-modal]').forEach(b => {
+            b.addEventListener('click', closeDetailModal);
+            detailModalHandlers.push({ el: b, event: 'click', handler: closeDetailModal });
         });
+
+        const approveBtn = els.detailModal.querySelector('[data-act="approve-from-modal"]');
+        if (approveBtn) {
+            const approveHandler = function() {
+                const btn = this;
+                btn.classList.add('is-loading');
+                handleApprove(btn.dataset.id, btn, closeDetailModal);
+            };
+            approveBtn.addEventListener('click', approveHandler);
+            detailModalHandlers.push({ el: approveBtn, event: 'click', handler: approveHandler });
+        }
+    }
+
+    function cleanupDetailModalListeners() {
+        detailModalHandlers.forEach(({ el, event, handler }) => {
+            el.removeEventListener(event, handler);
+        });
+        detailModalHandlers = [];
     }
 
     function renderDetailRow(icon, label, value) {
@@ -533,6 +573,7 @@
         if (els.detailModal) {
             els.detailModal.classList.remove('show');
             document.body.style.overflow = '';
+            cleanupDetailModalListeners();
         }
     }
 
@@ -615,7 +656,15 @@
     /* ============================================================
        11. CREDENTIAL MODAL (v7.0 — Show Random Password)
        ============================================================ */
+    let credentialModalHandlers = null;
+
     function showCredentialModal(email, password) {
+        // Cleanup modal sebelumnya jika masih ada
+        if (credentialModalHandlers) {
+            credentialModalHandlers.cleanup();
+            credentialModalHandlers = null;
+        }
+
         const modal = document.createElement('div');
         modal.className = 'modal-backdrop show';
         modal.innerHTML = `
@@ -668,20 +717,43 @@
         const close = () => {
             modal.classList.remove('show');
             setTimeout(() => {
+                // Remove event listeners sebelum hapus element
+                if (credentialModalHandlers) {
+                    credentialModalHandlers.handlers.forEach(({ el, event, handler }) => {
+                        el.removeEventListener(event, handler);
+                    });
+                    credentialModalHandlers = null;
+                }
                 modal.remove();
                 document.body.style.overflow = '';
             }, 300);
         };
 
-        modal.querySelectorAll('[data-close-modal]').forEach(b =>
-            b.addEventListener('click', close));
-        modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
-
-        modal.querySelector('#btnCopyPassword')?.addEventListener('click', () => {
-            navigator.clipboard?.writeText(password).then(() => {
-                toast('Password disalin ke clipboard', 'success');
-            });
+        // Simpan reference handlers untuk cleanup
+        const handlers = [];
+        
+        const closeBtnHandler = close;
+        modal.querySelectorAll('[data-close-modal]').forEach(b => {
+            b.addEventListener('click', closeBtnHandler);
+            handlers.push({ el: b, event: 'click', handler: closeBtnHandler });
         });
+
+        const backdropHandler = (e) => { if (e.target === modal) close(); };
+        modal.addEventListener('click', backdropHandler);
+        handlers.push({ el: modal, event: 'click', handler: backdropHandler });
+
+        const copyBtn = modal.querySelector('#btnCopyPassword');
+        if (copyBtn) {
+            const copyHandler = () => {
+                navigator.clipboard?.writeText(password).then(() => {
+                    toast('Password disalin ke clipboard', 'success');
+                });
+            };
+            copyBtn.addEventListener('click', copyHandler);
+            handlers.push({ el: copyBtn, event: 'click', handler: copyHandler });
+        }
+
+        credentialModalHandlers = { cleanup: close, handlers };
     }
 
     /* ============================================================

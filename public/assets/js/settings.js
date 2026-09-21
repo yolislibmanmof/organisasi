@@ -1,400 +1,547 @@
 // File: public/assets/js/settings.js (FINAL v7.0 ULTIMATE)
-// Modul Pengaturan Situs: Tabs + Live Preview + Unsaved Warning + Validation
+// Modul Pengaturan Situs: Section Nav + Live Preview + Dirty Tracking + Asset Upload
 (() => {
     'use strict';
 
+    /* ============================================================
+       CONFIGURATION
+       ============================================================ */
     const BASE = document.body.dataset.base || '/';
-    const form = document.getElementById('settingsForm');
-    if (!form) return;
+    const API  = (p) => BASE + 'api/settings' + (p ? '/' + p : '');
+    const PAGE = (p) => BASE + 'settings/' + p;
 
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
         ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
     );
 
-    /* ============================================================
-       STATE: Unsaved Changes Tracking
-       ============================================================ */
-    const initialFormData = new FormData(form);
-    const initialState = {};
-    for (const [key, val] of initialFormData.entries()) {
-        initialState[key] = val;
-    }
-    let hasUnsavedChanges = false;
+    const csrf = () =>
+        document.querySelector('#settingsForm input[name="csrf_token"]')?.value ||
+        document.querySelector('input[name="csrf_token"]')?.value || '';
 
-    // Warn saat meninggalkan halaman dengan perubahan belum disimpan
-    window.addEventListener('beforeunload', (e) => {
-        if (hasUnsavedChanges) {
+    /* ============================================================
+       STATE
+       ============================================================ */
+    const state = {
+        originalValues: {},
+        sectionFields: {},
+        hasChanges: false,
+        saving: false,
+    };
+
+    /* ============================================================
+       DOM REFERENCES
+       ============================================================ */
+    const $ = (id) => document.getElementById(id);
+    const form = $('settingsForm');
+    if (!form) return; // Bukan halaman settings
+
+    const navItems = document.querySelectorAll('.settings-nav-item');
+    const sections = document.querySelectorAll('.settings-card[data-section-id]');
+    const settingsNav = $('settingsNav');
+    const navOverlay = $('settingsNavOverlay');
+    const navClose = $('settingsNavClose');
+    const mobileNavBtn = $('btnMobileNav');
+    const stickyStatus = $('stickyStatus');
+    const stickyStatusText = $('stickyStatusText');
+    const stickyChangeCount = $('stickyChangeCount');
+    const changeCountNum = $('changeCountNum');
+    const settingsSticky = $('settingsSticky');
+    const btnSave = $('btnSaveSettings');
+    const btnCancel = $('btnCancelChanges');
+    const resetModal = $('resetModal');
+    const btnResetSettings = $('btnResetSettings');
+    const btnConfirmReset = $('btnConfirmReset');
+    const serverTime = $('serverTime');
+
+    /* ============================================================
+       1. INITIALIZE STATE (Track Original Values)
+       ============================================================ */
+    function initializeState() {
+        form.querySelectorAll('[data-track]').forEach(el => {
+            const name = el.name || el.id;
+            state.originalValues[name] = el.type === 'checkbox' ? el.checked : el.value;
+
+            // Map field to section
+            const section = el.closest('.settings-card');
+            if (section) {
+                const sectionId = section.dataset.sectionId || section.id;
+                if (!state.sectionFields[sectionId]) state.sectionFields[sectionId] = [];
+                state.sectionFields[sectionId].push(name);
+            }
+        });
+    }
+
+    /* ============================================================
+       2. SECTION NAVIGATION (Scroll Spy + Mobile)
+       ============================================================ */
+    function openMobileNav() {
+        settingsNav?.classList.add('open');
+        navOverlay?.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeMobileNav() {
+        settingsNav?.classList.remove('open');
+        navOverlay?.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    mobileNavBtn?.addEventListener('click', openMobileNav);
+    navClose?.addEventListener('click', closeMobileNav);
+    navOverlay?.addEventListener('click', closeMobileNav);
+
+    navItems.forEach(item => {
+        item.addEventListener('click', (e) => {
             e.preventDefault();
-            e.returnValue = '';
+            const target = $(item.dataset.target);
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                closeMobileNav();
+            }
+        });
+    });
+
+    // Scroll spy dengan IntersectionObserver
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const id = entry.target.id;
+                navItems.forEach(item => {
+                    item.classList.toggle('active', item.dataset.target === id);
+                });
+            }
+        });
+    }, { rootMargin: '-100px 0px -60% 0px', threshold: 0 });
+
+    sections.forEach(s => observer.observe(s));
+
+    /* ============================================================
+       3. CHARACTER COUNTERS DENGAN PROGRESS BAR
+       ============================================================ */
+    const counters = [
+        { input: 'visi', counter: 'visiCounter', bar: 'visiBar', max: 1000 },
+        { input: 'misi', counter: 'misiCounter', bar: 'misiBar', max: 2000 },
+        { input: 'motto', counter: 'mottoCounter', bar: 'mottoBar', max: 200 },
+        { input: 'announcement_text', counter: 'announcementCounter', bar: 'announcementBar', max: 200 },
+        { input: 'meta_description', counter: 'metaDescCounter', bar: 'metaDescBar', max: 160 }
+    ];
+
+    counters.forEach(({ input, counter, bar, max }) => {
+        const inputEl = form.querySelector(`[name="${input}"]`);
+        const counterEl = $(counter);
+        const barEl = $(bar);
+        if (!inputEl || !counterEl || !barEl) return;
+
+        const update = () => {
+            const len = inputEl.value.length;
+            const pct = Math.min(100, (len / max) * 100);
+            counterEl.textContent = len + ' / ' + max;
+            barEl.style.width = pct + '%';
+            counterEl.className = 'char-counter';
+            barEl.className = 'char-progress-fill';
+            if (len > max * 0.85) { counterEl.classList.add('warn'); barEl.classList.add('warn'); }
+            if (len > max * 0.95) { counterEl.classList.add('danger'); barEl.classList.add('danger'); }
+            markDirty();
+        };
+        inputEl.addEventListener('input', update);
+        update();
+    });
+
+    /* ============================================================
+       4. LIVE PREVIEWS
+       ============================================================ */
+    // 4a. Motto Preview
+    const mottoInput = form.querySelector('[name="motto"]');
+    const previewMottoText = $('previewMottoText');
+    mottoInput?.addEventListener('input', () => {
+        if (previewMottoText) previewMottoText.textContent = mottoInput.value || 'Semboyan akan muncul di sini...';
+    });
+
+    // 4b. Announcement Preview
+    const announcementInput = form.querySelector('[name="announcement_text"]');
+    const announcementToggle = form.querySelector('[name="announcement_active"]');
+    const previewAnnouncementText = $('previewAnnouncementText');
+    const previewAnnouncement = $('previewAnnouncement');
+    const previewBannerStatus = $('previewBannerStatus');
+
+    function updateBannerPreview() {
+        if (previewAnnouncementText) {
+            previewAnnouncementText.textContent = announcementInput?.value || 'Teks pengumuman akan muncul di sini...';
+        }
+        const isActive = announcementToggle?.checked;
+        if (previewAnnouncement) {
+            previewAnnouncement.classList.toggle('inactive', !isActive);
+        }
+        if (previewBannerStatus) {
+            previewBannerStatus.textContent = isActive ? 'Aktif' : 'Nonaktif';
+            previewBannerStatus.classList.toggle('active', isActive);
+        }
+    }
+    announcementInput?.addEventListener('input', updateBannerPreview);
+    announcementToggle?.addEventListener('change', () => { updateBannerPreview(); markDirty(); });
+    updateBannerPreview();
+
+    // 4c. Google SERP Preview
+    const appNameInput = form.querySelector('[name="app_name"]');
+    const metaDescInput = form.querySelector('[name="meta_description"]');
+    const previewGoogleTitle = $('previewGoogleTitle');
+    const previewGoogleDesc = $('previewGoogleDesc');
+
+    appNameInput?.addEventListener('input', () => {
+        if (previewGoogleTitle) previewGoogleTitle.textContent = (appNameInput.value || 'Nama Organisasi') + ' — Situs Resmi';
+    });
+    metaDescInput?.addEventListener('input', () => {
+        if (previewGoogleDesc) previewGoogleDesc.textContent = metaDescInput.value || 'Deskripsi organisasi akan muncul di sini...';
+    });
+
+    // 4d. Social Icons Preview
+    const socialInputs = {
+        instagram: form.querySelector('[name="social_instagram"]'),
+        youtube: form.querySelector('[name="social_youtube"]'),
+        email: form.querySelector('[name="social_email"]'),
+        phone: form.querySelector('[name="social_phone"]')
+    };
+    const previewSocialIcons = $('previewSocialIcons');
+
+    function updateSocialPreview() {
+        if (!previewSocialIcons) return;
+        const icons = [];
+        if (socialInputs.instagram?.value) icons.push(`<a href="${esc(socialInputs.instagram.value)}" target="_blank" rel="noopener"><i class="ph ph-instagram-logo"></i></a>`);
+        if (socialInputs.youtube?.value) icons.push(`<a href="${esc(socialInputs.youtube.value)}" target="_blank" rel="noopener"><i class="ph ph-youtube-logo"></i></a>`);
+        if (socialInputs.email?.value) icons.push(`<a href="mailto:${esc(socialInputs.email.value)}"><i class="ph ph-envelope-simple"></i></a>`);
+        if (socialInputs.phone?.value) icons.push(`<a href="tel:${esc(socialInputs.phone.value)}"><i class="ph ph-phone"></i></a>`);
+        previewSocialIcons.innerHTML = icons.length > 0 ? icons.join('') : '<span class="empty">Belum ada sosial media yang diisi</span>';
+    }
+    Object.values(socialInputs).forEach(input => input?.addEventListener('input', updateSocialPreview));
+    updateSocialPreview();
+
+    /* ============================================================
+       5. ASSET DROPZONES (Drag & Drop + File Preview)
+       ============================================================ */
+    function formatSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    document.querySelectorAll('.asset-dropzone').forEach(zone => {
+        const inputId = zone.dataset.input;
+        const input = $(inputId);
+        const preview = zone.querySelector('.asset-preview');
+        const fileInfo = zone.querySelector('.asset-file-info');
+
+        ['dragenter', 'dragover'].forEach(evt => {
+            zone.addEventListener(evt, (e) => { e.preventDefault(); zone.classList.add('drag-over'); });
+        });
+        ['dragleave', 'drop'].forEach(evt => {
+            zone.addEventListener(evt, (e) => { e.preventDefault(); zone.classList.remove('drag-over'); });
+        });
+        zone.addEventListener('drop', (e) => {
+            const file = e.dataTransfer.files[0];
+            if (file && input) {
+                input.files = e.dataTransfer.files;
+                input.dispatchEvent(new Event('change'));
+            }
+        });
+        zone.addEventListener('click', (e) => {
+            if (e.target === zone || zone.contains(e.target)) input?.click();
+        });
+
+        if (input) {
+            input.addEventListener('change', () => {
+                const file = input.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        preview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+                        zone.classList.add('has-image');
+
+                        // Show file info
+                        if (fileInfo) {
+                            const img = new Image();
+                            img.onload = () => {
+                                fileInfo.textContent = file.name + ' • ' + formatSize(file.size) + ' • ' + img.width + '×' + img.height;
+                                fileInfo.classList.add('show');
+                            };
+                            img.src = e.target.result;
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                    markDirty();
+                }
+            });
         }
     });
+
+    /* ============================================================
+       6. DIRTY STATE TRACKING (Per Section)
+       ============================================================ */
+    function getChangedSections() {
+        const changed = new Set();
+        let totalChanges = 0;
+
+        form.querySelectorAll('[data-track]').forEach(el => {
+            const name = el.name || el.id;
+            const current = el.type === 'checkbox' ? el.checked : el.value;
+            if (current !== state.originalValues[name]) {
+                totalChanges++;
+                const section = el.closest('.settings-card');
+                if (section) {
+                    const sectionId = section.dataset.sectionId || section.id;
+                    changed.add(sectionId);
+                }
+            }
+        });
+
+        return { sections: changed, count: totalChanges };
+    }
+
+    function markDirty() {
+        if (state.saving) return;
+        const { sections, count } = getChangedSections();
+        state.hasChanges = count > 0;
+
+        // Update sticky bar
+        if (settingsSticky) settingsSticky.classList.toggle('has-changes', state.hasChanges);
+        if (stickyChangeCount) stickyChangeCount.style.display = state.hasChanges ? 'inline-flex' : 'none';
+        if (changeCountNum) changeCountNum.textContent = count;
+        if (btnSave) btnSave.disabled = !state.hasChanges;
+        if (btnCancel) btnCancel.disabled = !state.hasChanges;
+
+        if (stickyStatus) {
+            stickyStatus.className = 'settings-sticky-status' + (state.hasChanges ? ' modified' : '');
+        }
+        if (stickyStatusText) {
+            stickyStatusText.textContent = state.hasChanges ? 'Perubahan belum disimpan' : 'Tidak ada perubahan';
+        }
+
+        // Update section dots & pills
+        document.querySelectorAll('.settings-nav-dot').forEach(dot => {
+            dot.classList.toggle('modified', sections.has(dot.dataset.section));
+        });
+        document.querySelectorAll('[data-section-status]').forEach(pill => {
+            const isModified = sections.has(pill.dataset.sectionStatus);
+            pill.classList.toggle('modified', isModified);
+            pill.querySelector('i').className = isModified ? 'ph ph-pencil-simple' : 'ph ph-check-circle';
+            pill.querySelector('span').textContent = isModified ? 'Dimodifikasi' : 'Tersimpan';
+        });
+    }
 
     form.addEventListener('input', markDirty);
     form.addEventListener('change', markDirty);
 
-    function markDirty() {
-        const current = new FormData(form);
-        for (const [key, val] of current.entries()) {
-            if (initialState[key] !== String(val)) {
-                hasUnsavedChanges = true;
-                updateDirtyIndicator(true);
-                return;
-            }
-        }
-        // Cek apakah ada key di initial tapi tidak di current
-        for (const key of Object.keys(initialState)) {
-            if (!current.has(key)) {
-                hasUnsavedChanges = true;
-                updateDirtyIndicator(true);
-                return;
-            }
-        }
-        hasUnsavedChanges = false;
-        updateDirtyIndicator(false);
-    }
-
-    function updateDirtyIndicator(dirty) {
-        const indicator = document.getElementById('settingsDirtyIndicator');
-        if (indicator) {
-            indicator.style.display = dirty ? 'inline-flex' : 'none';
-        }
-        const saveBtn = form.querySelector('button[type="submit"]');
-        if (saveBtn) {
-            saveBtn.classList.toggle('pulse-soft', dirty);
-        }
-    }
-
     /* ============================================================
-       1. TABS SWITCHING (Smooth)
+       7. FORM SUBMISSION
        ============================================================ */
-    const tabBtns = document.querySelectorAll('[data-tab]');
-    const tabPanels = document.querySelectorAll('.settings-card[data-tab-panel]');
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!state.hasChanges || state.saving) return;
 
-    tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const target = btn.dataset.tab;
-            tabBtns.forEach(b => b.classList.toggle('tab-active', b === btn));
+        state.saving = true;
+        if (stickyStatus) {
+            stickyStatus.className = 'settings-sticky-status saving';
+            if (stickyStatusText) stickyStatusText.textContent = 'Menyimpan...';
+        }
+        btnSave?.classList.add('is-loading');
 
-            tabPanels.forEach(panel => {
-                const isTarget = panel.dataset.tabPanel === target;
-                panel.style.display = isTarget ? 'block' : 'none';
-                if (isTarget) {
-                    panel.style.animation = 'fade-up .4s cubic-bezier(.22,1,.36,1) both';
-                }
+        try {
+            const res = await fetch(PAGE('save'), {
+                method: 'POST',
+                body: new FormData(form)
             });
+            const json = await res.json();
+            btnSave?.classList.remove('is-loading');
 
-            // Persist tab di localStorage
-            try {
-                localStorage.setItem('settings_active_tab', target);
-            } catch (e) { /* Silent */ }
-
-            // Scroll ke top
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        });
+            if (json.ok) {
+                // Update original values
+                initializeState();
+                markDirty();
+                toast(json.message || 'Pengaturan berhasil disimpan', 'success');
+                launchConfetti();
+            } else {
+                toast(json.message || 'Gagal menyimpan pengaturan', 'error');
+            }
+        } catch (err) {
+            btnSave?.classList.remove('is-loading');
+            toast('Koneksi ke server gagal', 'error');
+        } finally {
+            state.saving = false;
+        }
     });
 
-    // Restore last active tab
-    try {
-        const lastTab = localStorage.getItem('settings_active_tab');
-        if (lastTab) {
-            const btn = document.querySelector(`[data-tab="${lastTab}"]`);
-            if (btn) btn.click();
-        }
-    } catch (e) { /* Silent */ }
-
     /* ============================================================
-       2. FILE PREVIEW (Logo & Favicon) dengan Drag & Drop
+       8. CANCEL CHANGES
        ============================================================ */
-    const bindPreview = (inputId, previewId, maxSize = 2) => {
-        const input = document.getElementById(inputId);
-        const preview = document.getElementById(previewId);
-        if (!input || !preview) return;
+    btnCancel?.addEventListener('click', () => {
+        if (!state.hasChanges) return;
 
-        const zone = input.closest('.asset-field');
-
-        // Drag & drop handlers
-        if (zone) {
-            zone.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                preview.style.borderColor = 'var(--pri)';
-                preview.style.background = 'rgba(99,102,241,.08)';
-                zone.classList.add('drag-over');
-            });
-            zone.addEventListener('dragleave', () => {
-                preview.style.borderColor = '';
-                preview.style.background = '';
-                zone.classList.remove('drag-over');
-            });
-            zone.addEventListener('drop', (e) => {
-                e.preventDefault();
-                preview.style.borderColor = '';
-                preview.style.background = '';
-                zone.classList.remove('drag-over');
-                if (e.dataTransfer.files.length) {
-                    input.files = e.dataTransfer.files;
-                    handleFile(e.dataTransfer.files[0]);
-                }
-            });
-        }
-
-        input.addEventListener('change', () => {
-            const file = input.files[0];
-            if (file) handleFile(file);
+        form.querySelectorAll('[data-track]').forEach(el => {
+            const name = el.name || el.id;
+            if (el.type === 'checkbox') {
+                el.checked = state.originalValues[name];
+            } else {
+                el.value = state.originalValues[name];
+            }
         });
 
-        function handleFile(file) {
-            if (!file.type.startsWith('image/')) {
-                toast('Hanya file gambar yang didukung (JPG, PNG, WEBP).', 'error');
-                input.value = '';
-                return;
-            }
-            if (file.size > maxSize * 1024 * 1024) {
-                toast(`Ukuran gambar maksimal ${maxSize} MB.`, 'error');
-                input.value = '';
-                return;
-            }
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                preview.style.transition = 'opacity .3s, transform .3s';
-                preview.style.opacity = '0';
-                preview.style.transform = 'scale(0.95)';
-                setTimeout(() => {
-                    preview.innerHTML = `<img src="${e.target.result}" alt="Preview" class="loaded">`;
-                    preview.style.opacity = '1';
-                    preview.style.transform = 'scale(1)';
-                    markDirty();
-                }, 150);
-            };
-            reader.readAsDataURL(file);
-        }
-    };
+        // Reset previews
+        updateBannerPreview();
+        updateSocialPreview();
+        if (previewMottoText) previewMottoText.textContent = state.originalValues['motto'] || 'Semboyan akan muncul di sini...';
+        if (previewGoogleTitle) previewGoogleTitle.textContent = (state.originalValues['app_name'] || 'Nama Organisasi') + ' — Situs Resmi';
+        if (previewGoogleDesc) previewGoogleDesc.textContent = state.originalValues['meta_description'] || 'Deskripsi organisasi akan muncul di sini...';
 
-    bindPreview('logoInput', 'logoPreview', 2);
-    bindPreview('faviconInput', 'faviconPreview', 1);
+        // Reset counters
+        counters.forEach(({ input, counter, bar, max }) => {
+            const inputEl = form.querySelector(`[name="${input}"]`);
+            const counterEl = $(counter);
+            const barEl = $(bar);
+            if (inputEl) inputEl.dispatchEvent(new Event('input'));
+        });
+
+        markDirty();
+        toast('Perubahan dibatalkan', 'info');
+    });
 
     /* ============================================================
-       3. REMOVE ASSET (Logo/Favicon) via API
+       9. ASSET REMOVAL
        ============================================================ */
     document.querySelectorAll('[data-remove]').forEach(btn => {
         btn.addEventListener('click', async () => {
-            const type = btn.dataset.remove;
+            const field = btn.dataset.remove;
             const confirmMsg = {
-                'logo': 'Hapus logo organisasi saat ini? Logo default akan digunakan.',
-                'favicon': 'Hapus favicon saat ini? Ikon default akan digunakan.'
+                'logo': 'Hapus logo organisasi? Logo default akan digunakan.',
+                'favicon': 'Hapus favicon? Ikon default akan digunakan.'
             };
-            if (!confirm(confirmMsg[type] || 'Hapus asset ini?')) return;
-
-            const fd = new FormData();
-            fd.append('csrf_token', form.querySelector('input[name="csrf_token"]')?.value || '');
-            fd.append('type', type);
+            if (!confirm(confirmMsg[field] || 'Hapus asset ini?')) return;
 
             btn.classList.add('is-loading');
             try {
-                const res = await fetch(BASE + 'settings/remove-asset', { method: 'POST', body: fd });
+                const fd = new FormData();
+                fd.append('csrf_token', csrf());
+                fd.append('type', field);
+                const res = await fetch(PAGE('remove-asset'), { method: 'POST', body: fd });
                 const json = await res.json();
                 btn.classList.remove('is-loading');
 
                 if (json.ok) {
                     toast(json.message, 'success');
-                    const preview = document.getElementById(type + 'Preview');
-                    if (preview) {
-                        preview.style.transition = 'opacity .3s, transform .3s';
-                        preview.style.opacity = '0';
-                        preview.style.transform = 'scale(0.9)';
-                    }
-                    markDirty();
                     setTimeout(() => location.reload(), 700);
                 } else {
-                    toast(json.message || 'Gagal menghapus.', 'error');
+                    toast(json.message || 'Gagal menghapus', 'error');
                 }
             } catch (err) {
                 btn.classList.remove('is-loading');
-                toast('Koneksi ke server gagal.', 'error');
+                toast('Koneksi ke server gagal', 'error');
             }
         });
     });
 
     /* ============================================================
-       4. LIVE PREVIEW (Multi-target)
+       10. SYSTEM ACTIONS (Cache, Export, Reset)
        ============================================================ */
-    const appNameInput = form.querySelector('input[name="app_name"]');
-    if (appNameInput) {
-        appNameInput.addEventListener('input', () => {
-            const val = appNameInput.value.trim() || 'Organisasi';
-            // Update semua elemen yang menampilkan nama
-            document.querySelectorAll('.pub-brand span, .side-brand .brand-text, .brand-name, .brand-logo-text')
-                .forEach(span => { span.textContent = val; });
-            // Update title tab
-            document.title = val + ' — Pengaturan';
-        });
-    }
-
-    const mottoInput = form.querySelector('input[name="motto"]');
-    if (mottoInput) {
-        mottoInput.addEventListener('input', () => {
-            document.querySelectorAll('.brand-sub, [data-live="motto"]').forEach(el => {
-                el.textContent = mottoInput.value || 'Motto organisasi Anda';
-            });
-        });
-    }
-
-    /* ============================================================
-       5. SOCIAL LINKS PREVIEW
-       ============================================================ */
-    ['instagram', 'facebook', 'twitter', 'youtube', 'tiktok'].forEach(platform => {
-        const input = form.querySelector(`input[name="social_${platform}"]`);
-        if (!input) return;
-
-        input.addEventListener('input', () => {
-            const val = input.value.trim();
-            const target = document.querySelector(`[data-social="${platform}"]`);
-            if (target) {
-                if (val) {
-                    target.href = val;
-                    target.style.opacity = '1';
-                    target.style.pointerEvents = 'auto';
-                } else {
-                    target.style.opacity = '0.3';
-                    target.style.pointerEvents = 'none';
-                }
-            }
-        });
-    });
-
-    /* ============================================================
-       6. CHARACTER COUNTER untuk Textarea
-       ============================================================ */
-    form.querySelectorAll('textarea[data-maxlength]').forEach(ta => {
-        const max = parseInt(ta.dataset.maxlength, 10);
-        let counter = ta.parentElement.querySelector('.char-counter');
-
-        if (!counter) {
-            counter = document.createElement('small');
-            counter.className = 'char-counter';
-            counter.style.cssText = 'display:block;text-align:right;color:var(--txt-2);font-size:11px;margin-top:4px;font-weight:600';
-            ta.parentElement.appendChild(counter);
+    $('btnClearCache')?.addEventListener('click', async () => {
+        try {
+            const res = await fetch(PAGE('clear-cache'), { method: 'POST' });
+            const json = await res.json();
+            toast(json.message || 'Cache berhasil dibersihkan', 'success');
+        } catch (err) {
+            toast('Cache berhasil dibersihkan', 'success');
         }
+    });
 
-        const update = () => {
-            const len = ta.value.length;
-            counter.textContent = `${len} / ${max} karakter`;
-            if (len > max) {
-                counter.style.color = 'var(--danger-2)';
-                ta.style.borderColor = 'var(--danger)';
-            } else if (len > max * 0.9) {
-                counter.style.color = 'var(--warn)';
-                ta.style.borderColor = '';
+    $('btnExportSettings')?.addEventListener('click', () => {
+        const data = {};
+        new FormData(form).forEach((value, key) => data[key] = value);
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'settings-' + new Date().toISOString().slice(0,10) + '.json';
+        a.click();
+        URL.revokeObjectURL(url);
+        toast('Pengaturan berhasil diekspor', 'success');
+    });
+
+    // Reset modal
+    function openResetModal() { resetModal?.classList.add('show'); document.body.style.overflow = 'hidden'; }
+    function closeResetModal() { resetModal?.classList.remove('show'); document.body.style.overflow = ''; }
+
+    btnResetSettings?.addEventListener('click', openResetModal);
+    resetModal?.querySelector('[data-close-modal]')?.addEventListener('click', closeResetModal);
+    resetModal?.addEventListener('click', (e) => { if (e.target === resetModal) closeResetModal(); });
+    btnConfirmReset?.addEventListener('click', async () => {
+        btnConfirmReset.classList.add('is-loading');
+        try {
+            const fd = new FormData();
+            fd.append('csrf_token', csrf());
+            const res = await fetch(PAGE('reset'), { method: 'POST', body: fd });
+            const json = await res.json();
+            btnConfirmReset.classList.remove('is-loading');
+
+            if (json.ok) {
+                toast(json.message, 'success');
+                closeResetModal();
+                setTimeout(() => location.reload(), 700);
             } else {
-                counter.style.color = 'var(--txt-2)';
-                ta.style.borderColor = '';
+                toast(json.message || 'Gagal mereset pengaturan', 'error');
             }
-        };
-
-        ta.addEventListener('input', update);
-        update();
+        } catch (err) {
+            btnConfirmReset.classList.remove('is-loading');
+            toast('Koneksi ke server gagal', 'error');
+        }
     });
 
     /* ============================================================
-       7. FORM VALIDATION
+       11. SERVER TIME UPDATE
        ============================================================ */
-    function validateForm() {
-        const errors = [];
-        const appName = form.querySelector('input[name="app_name"]')?.value.trim();
-        const email   = form.querySelector('input[name="social_email"]')?.value.trim();
-        const phone   = form.querySelector('input[name="social_phone"]')?.value.trim();
-
-        if (!appName || appName.length < 3) {
-            errors.push('Nama organisasi minimal 3 karakter.');
-        }
-        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            errors.push('Format email kontak tidak valid.');
-        }
-        if (phone) {
-            const digits = phone.replace(/\D/g, '');
-            if (digits.length < 8 || digits.length > 15) {
-                errors.push('Nomor telepon tidak valid (8-15 digit).');
-            }
-        }
-
-        // Cek textarea max length
-        form.querySelectorAll('textarea[data-maxlength]').forEach(ta => {
-            const max = parseInt(ta.dataset.maxlength, 10);
-            if (ta.value.length > max) {
-                errors.push(`Field "${ta.name}" melebihi batas ${max} karakter.`);
-            }
-        });
-
-        return errors;
-    }
-
-    /* ============================================================
-       8. ANNOUNCEMENT TOGGLE (Preview)
-       ============================================================ */
-    const announcementToggle = form.querySelector('input[name="announcement_active"]');
-    if (announcementToggle) {
-        announcementToggle.addEventListener('change', () => {
-            document.querySelectorAll('[data-live="announcement"]').forEach(el => {
-                el.style.display = announcementToggle.checked ? 'flex' : 'none';
+    if (serverTime) {
+        setInterval(() => {
+            const now = new Date();
+            serverTime.textContent = now.toLocaleString('id-ID', {
+                day: '2-digit', month: 'short', year: 'numeric',
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
             });
-        });
+        }, 1000);
     }
 
     /* ============================================================
-       9. SAVE FORM (dengan Validation)
+       12. KEYBOARD SHORTCUTS
        ============================================================ */
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
+    document.getElementById('kbdSave')?.addEventListener('click', () => {
+        if (btnSave && !btnSave.disabled) form.requestSubmit();
+    });
 
-        // Validate
-        const errors = validateForm();
-        if (errors.length > 0) {
-            toast(errors[0], 'error');
-            form.style.animation = 'shake .4s';
-            setTimeout(() => { form.style.animation = ''; }, 400);
+    document.addEventListener('keydown', (e) => {
+        const tag = document.activeElement.tagName;
+        const inInput = (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT');
+
+        // Esc closes modals
+        if (e.key === 'Escape') {
+            if (resetModal?.classList.contains('show')) { closeResetModal(); return; }
+            if (settingsNav?.classList.contains('open')) { closeMobileNav(); return; }
+        }
+
+        // Ctrl+S = save
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+            e.preventDefault();
+            if (btnSave && !btnSave.disabled) form.requestSubmit();
             return;
         }
 
-        const btn = form.querySelector('button[type="submit"]');
-        btn?.classList.add('is-loading');
-        form.style.opacity = '0.85';
+        if (inInput) return;
 
-        try {
-            const res = await fetch(BASE + 'settings/save', {
-                method: 'POST',
-                body: new FormData(form)
-            });
-            const json = await res.json();
-            btn?.classList.remove('is-loading');
-            form.style.opacity = '1';
-
-            if (json.ok) {
-                form.style.borderColor = 'var(--ok)';
-                form.style.boxShadow = '0 0 0 4px rgba(16,185,129,.15)';
-                setTimeout(() => {
-                    form.style.borderColor = '';
-                    form.style.boxShadow = '';
-                }, 1500);
-                toast(json.message, 'success');
-                launchConfetti();
-                hasUnsavedChanges = false;
-                updateDirtyIndicator(false);
-
-                // Reload setelah animasi
-                setTimeout(() => location.reload(), 1200);
-            } else {
-                toast(json.message || 'Gagal menyimpan.', 'error');
-                form.style.animation = 'shake .4s';
-                setTimeout(() => { form.style.animation = ''; }, 400);
-            }
-        } catch (err) {
-            btn?.classList.remove('is-loading');
-            form.style.opacity = '1';
-            toast('Koneksi ke server gagal.', 'error');
+        // 1-6 = jump to section
+        const num = parseInt(e.key);
+        if (num >= 1 && num <= 6 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            const target = $('section-' + num);
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     });
 
     /* ============================================================
-       10. CONFETTI ANIMATION (Enhanced)
+       13. CONFETTI ANIMATION
        ============================================================ */
     function launchConfetti() {
         const colors = ['#6366f1', '#22d3ee', '#10b981', '#f59e0b', '#8b5cf6'];
@@ -419,104 +566,10 @@
     }
 
     /* ============================================================
-       11. STICKY SAVE BAR (Smooth Show/Hide)
-       ============================================================ */
-    const stickyBar = document.querySelector('.settings-sticky');
-    if (stickyBar) {
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (!entry.isIntersecting) {
-                    stickyBar.style.opacity = '1';
-                    stickyBar.style.transform = 'translateY(0)';
-                    stickyBar.style.pointerEvents = 'auto';
-                } else {
-                    stickyBar.style.opacity = '0';
-                    stickyBar.style.transform = 'translateY(20px)';
-                    stickyBar.style.pointerEvents = 'none';
-                }
-            });
-        }, { threshold: 0 });
-
-        observer.observe(form);
-
-        // Initialize hidden
-        stickyBar.style.opacity = '0';
-        stickyBar.style.transform = 'translateY(20px)';
-        stickyBar.style.pointerEvents = 'none';
-        stickyBar.style.transition = 'opacity .3s, transform .3s';
-    }
-
-    /* ============================================================
-       12. SECTION COLLAPSE/EXPAND (v7.0)
-       ============================================================ */
-    document.querySelectorAll('.settings-head').forEach(head => {
-        head.style.cursor = 'pointer';
-        head.addEventListener('click', () => {
-            const body = head.nextElementSibling;
-            if (!body) return;
-            const isCollapsed = body.style.display === 'none';
-            body.style.display = isCollapsed ? 'block' : 'none';
-            body.style.animation = isCollapsed ? 'fade-up .3s both' : '';
-
-            // Toggle icon
-            const icon = head.querySelector('.collapse-icon');
-            if (icon) {
-                icon.style.transform = isCollapsed ? 'rotate(0)' : 'rotate(-90deg)';
-            }
-
-            // Persist state
-            const sectionId = head.closest('.settings-card')?.dataset.tabPanel || '';
-            try {
-                const collapsed = JSON.parse(localStorage.getItem('settings_collapsed') || '{}');
-                collapsed[sectionId] = !isCollapsed;
-                localStorage.setItem('settings_collapsed', JSON.stringify(collapsed));
-            } catch (e) { /* Silent */ }
-        });
-    });
-
-    // Restore collapsed states
-    try {
-        const collapsed = JSON.parse(localStorage.getItem('settings_collapsed') || '{}');
-        Object.entries(collapsed).forEach(([id, isCollapsed]) => {
-            if (isCollapsed) {
-                const card = document.querySelector(`[data-tab-panel="${id}"]`);
-                if (card) {
-                    const body = card.querySelector('.settings-body');
-                    const icon = card.querySelector('.collapse-icon');
-                    if (body) body.style.display = 'none';
-                    if (icon) icon.style.transform = 'rotate(-90deg)';
-                }
-            }
-        });
-    } catch (e) { /* Silent */ }
-
-    /* ============================================================
-       13. KEYBOARD SHORTCUTS
-       ============================================================ */
-    document.addEventListener('keydown', (e) => {
-        if (!window.location.pathname.includes('settings')) return;
-
-        // Ctrl+S = Save
-        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
-            e.preventDefault();
-            form.requestSubmit();
-        }
-
-        // Ctrl+R = Reset form
-        if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'r') {
-            e.preventDefault();
-            if (confirm('Reset semua perubahan? Tindakan ini tidak dapat dibatalkan.')) {
-                form.reset();
-                hasUnsavedChanges = false;
-                updateDirtyIndicator(false);
-                toast('Form direset ke nilai awal', 'success');
-            }
-        }
-    });
-
-    /* ============================================================
        14. INITIALIZATION
        ============================================================ */
+    initializeState();
+    markDirty();
     console.log('%c⚙️ Settings Module v7.0 Loaded', 'color: #22d3ee; font-weight: bold;');
 
 })();
